@@ -3,6 +3,7 @@ package com.example.xhscopywriting.repository;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -71,7 +72,7 @@ public class GenerationRepository {
             statement.setString(3, generation.getStoredFileName());
             statement.setString(4, generation.getImagePath());
             statement.setString(5, generation.getImageContentType());
-            statement.setLong(6, generation.getImageSize());
+            statement.setObject(6, generation.getImageSize(), Types.BIGINT);
             statement.setString(7, generation.getImageAnalysis());
             statement.setString(8, generation.getTitle());
             statement.setString(9, generation.getContent());
@@ -101,7 +102,7 @@ public class GenerationRepository {
             generation.setStoredFileName(resultSet.getString("stored_file_name"));
             generation.setImagePath(resultSet.getString("image_path"));
             generation.setImageContentType(resultSet.getString("image_content_type"));
-            generation.setImageSize(resultSet.getLong("image_size"));
+            generation.setImageSize(resultSet.getObject("image_size", Long.class));
             generation.setImageAnalysis(resultSet.getString("image_analysis"));
             generation.setTitle(resultSet.getString("title"));
             generation.setContent(resultSet.getString("content"));
