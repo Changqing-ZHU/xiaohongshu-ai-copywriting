@@ -27,4 +27,21 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
+
+    @ExceptionHandler(InvalidImageException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidImageException(
+            InvalidImageException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                exception.getMessage(),
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler({ImageStorageException.class, ImageUploadException.class})
+    public ResponseEntity<ApiErrorResponse> handleImageUploadFailure(RuntimeException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                "Unable to store generation image",
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
 }

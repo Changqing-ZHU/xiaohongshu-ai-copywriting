@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,6 +52,17 @@ public class GenerationRepository {
                 created_at,
                 updated_at
             FROM generations
+            WHERE id = ?
+            """;
+
+    private static final String UPDATE_IMAGE_INFO_SQL = """
+            UPDATE generations
+            SET original_file_name = ?,
+                stored_file_name = ?,
+                image_path = ?,
+                image_content_type = ?,
+                image_size = ?,
+                updated_at = ?
             WHERE id = ?
             """;
 
@@ -112,5 +124,24 @@ public class GenerationRepository {
             generation.setUpdatedAt(resultSet.getTimestamp("updated_at").toLocalDateTime());
             return generation;
         }, id).stream().findFirst();
+    }
+
+    public int updateImageInfo(
+            Long id,
+            String originalFileName,
+            String storedFileName,
+            String imagePath,
+            String imageContentType,
+            long imageSize,
+            LocalDateTime updatedAt) {
+        return jdbcTemplate.update(
+                UPDATE_IMAGE_INFO_SQL,
+                originalFileName,
+                storedFileName,
+                imagePath,
+                imageContentType,
+                imageSize,
+                Timestamp.valueOf(updatedAt),
+                id);
     }
 }
