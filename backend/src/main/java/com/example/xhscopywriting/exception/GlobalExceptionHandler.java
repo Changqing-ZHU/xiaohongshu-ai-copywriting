@@ -18,4 +18,13 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
+
+    @ExceptionHandler(GenerationNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleGenerationNotFoundException(
+            GenerationNotFoundException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                "Generation task not found",
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
 }

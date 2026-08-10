@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.xhscopywriting.dto.GenerationCreateRequest;
 import com.example.xhscopywriting.exception.GenerationCreationException;
+import com.example.xhscopywriting.exception.GenerationNotFoundException;
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
 
@@ -39,5 +40,11 @@ public class GenerationService {
         } catch (DataAccessException | IllegalStateException exception) {
             throw new GenerationCreationException("Failed to persist generation task", exception);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Generation findById(Long id) {
+        return generationRepository.findById(id)
+                .orElseThrow(() -> new GenerationNotFoundException(id));
     }
 }
