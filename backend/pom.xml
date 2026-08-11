@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>17</java.version>
+        <spring-dotenv.version>5.1.0</spring-dotenv.version>
     </properties>
 
     <dependencies>
@@ -39,6 +40,12 @@
         </dependency>
 
         <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>springboot3-dotenv</artifactId>
+            <version>${spring-dotenv.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -50,6 +57,20 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <springdotenv.directory>${project.basedir}/..</springdotenv.directory>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <springdotenv.directory>${project.basedir}/..</springdotenv.directory>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

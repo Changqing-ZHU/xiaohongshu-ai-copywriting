@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -19,11 +18,6 @@ import com.example.xhscopywriting.exception.InvalidImageException;
 @Service
 public class ImageStorageService {
 
-    private static final Map<String, String> SUPPORTED_TYPES = Map.of(
-            "image/jpeg", ".jpg",
-            "image/png", ".png",
-            "image/webp", ".webp");
-
     private final Path uploadDirectory;
 
     public ImageStorageService(@Value("${app.upload-dir}") String uploadDirectory) {
@@ -33,36 +27,37 @@ public class ImageStorageService {
     public ImageStorageResult store(MultipartFile image) {
         validateBasicFileProperties(image);
 
-        String contentType = image.getContentType();
-        String extension = SUPPORTED_TYPES.get(contentType);
-        String storedFileName = UUID.randomUUID() + extension;
-        Path destination = uploadDirectory.resolve(storedFileName).normalize();
-
-        if (!destination.startsWith(uploadDirectory)) {
-            throw new InvalidImageException("Invalid image storage path");
-        }
-
+        Path destination = null;
         try {
-            Files.createDirectories(uploadDirectory);
             try (InputStream rawStream = image.getInputStream();
                  BufferedInputStream inputStream = new BufferedInputStream(rawStream)) {
                 inputStream.mark(16);
                 byte[] header = inputStream.readNBytes(12);
                 inputStream.reset();
-                validateFileSignature(contentType, header);
-                Files.copy(inputStream, destination);
-            }
 
-            return new ImageStorageResult(
-                    storedFileName,
-                    destination.toString(),
-                    contentType,
-                    image.getSize());
+                ImageType imageType = detectImageType(header);
+                String storedFileName = UUID.randomUUID() + imageType.extension;
+                destination = uploadDirectory.resolve(storedFileName).normalize();
+                if (!destination.startsWith(uploadDirectory)) {
+                    throw new InvalidImageException("Invalid image storage path");
+                }
+
+                Files.createDirectories(uploadDirectory);
+                Files.copy(inputStream, destination);
+
+                return new ImageStorageResult(
+                        storedFileName,
+                        destination.toString(),
+                        imageType.contentType,
+                        image.getSize());
+            }
         } catch (IOException exception) {
-            try {
-                Files.deleteIfExists(destination);
-            } catch (IOException ignored) {
-                // Preserve the original storage exception.
+            if (destination != null) {
+                try {
+                    Files.deleteIfExists(destination);
+                } catch (IOException ignored) {
+                    // Preserve the original storage exception.
+                }
             }
             throw new ImageStorageException("Failed to store uploaded image", exception);
         }
@@ -86,22 +81,19 @@ public class ImageStorageService {
             throw new InvalidImageException("Image file must not be empty");
         }
 
-        if (!SUPPORTED_TYPES.containsKey(image.getContentType())) {
-            throw new InvalidImageException("Unsupported image type");
-        }
     }
 
-    private void validateFileSignature(String contentType, byte[] header) {
-        boolean valid = switch (contentType) {
-            case "image/jpeg" -> isJpeg(header);
-            case "image/png" -> isPng(header);
-            case "image/webp" -> isWebp(header);
-            default -> false;
-        };
-
-        if (!valid) {
-            throw new InvalidImageException("File content does not match its image type");
+    private ImageType detectImageType(byte[] header) {
+        if (isJpeg(header)) {
+            return ImageType.JPEG;
         }
+        if (isPng(header)) {
+            return ImageType.PNG;
+        }
+        if (isWebp(header)) {
+            return ImageType.WEBP;
+        }
+        throw new InvalidImageException("Unsupported or invalid image content");
     }
 
     private boolean isJpeg(byte[] header) {
@@ -138,5 +130,19 @@ public class ImageStorageService {
 
     private int unsigned(byte value) {
         return value & 0xFF;
+    }
+
+    private enum ImageType {
+        JPEG("image/jpeg", ".jpg"),
+        PNG("image/png", ".png"),
+        WEBP("image/webp", ".webp");
+
+        private final String contentType;
+        private final String extension;
+
+        ImageType(String contentType, String extension) {
+            this.contentType = contentType;
+            this.extension = extension;
+        }
     }
 }

@@ -44,4 +44,13 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
+
+    @ExceptionHandler(GenerationProcessingException.class)
+    public ResponseEntity<ApiErrorResponse> handleGenerationProcessingException(
+            GenerationProcessingException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                "Unable to generate copywriting",
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
 }

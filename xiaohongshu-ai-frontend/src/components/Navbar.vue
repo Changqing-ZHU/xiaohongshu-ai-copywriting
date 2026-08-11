@@ -17,7 +17,7 @@ const emit = defineEmits<{
         <a href="/" :class="{ active: activePath === '/' }" @click.prevent="emit('navigate', '/')">
           文案生成
         </a>
-        <span class="stage-badge">静态原型</span>
+        <span class="stage-badge">AI 生成</span>
       </nav>
     </div>
   </header>

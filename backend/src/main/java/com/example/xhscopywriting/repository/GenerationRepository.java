@@ -66,6 +66,26 @@ public class GenerationRepository {
             WHERE id = ?
             """;
 
+    private static final String UPDATE_GENERATION_RESULT_SQL = """
+            UPDATE generations
+            SET image_analysis = ?,
+                title = ?,
+                content = ?,
+                tags = ?,
+                error_message = NULL,
+                status = ?,
+                updated_at = ?
+            WHERE id = ?
+            """;
+
+    private static final String MARK_FAILED_SQL = """
+            UPDATE generations
+            SET status = 'FAILED',
+                error_message = ?,
+                updated_at = ?
+            WHERE id = ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     public GenerationRepository(JdbcTemplate jdbcTemplate) {
@@ -141,6 +161,33 @@ public class GenerationRepository {
                 imagePath,
                 imageContentType,
                 imageSize,
+                Timestamp.valueOf(updatedAt),
+                id);
+    }
+
+    public int updateGenerationResult(
+            Long id,
+            String imageAnalysis,
+            String title,
+            String content,
+            String tags,
+            String status,
+            LocalDateTime updatedAt) {
+        return jdbcTemplate.update(
+                UPDATE_GENERATION_RESULT_SQL,
+                imageAnalysis,
+                title,
+                content,
+                tags,
+                status,
+                Timestamp.valueOf(updatedAt),
+                id);
+    }
+
+    public int markFailed(Long id, String errorMessage, LocalDateTime updatedAt) {
+        return jdbcTemplate.update(
+                MARK_FAILED_SQL,
+                errorMessage,
                 Timestamp.valueOf(updatedAt),
                 id);
     }

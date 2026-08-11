@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+const supportedTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 defineProps<{ file: File | null; previewUrl: string }>()
 
 const emit = defineEmits<{
@@ -12,7 +14,7 @@ const openFilePicker = () => inputRef.value?.click()
 
 const selectFile = (files: FileList | null) => {
   const file = files?.[0]
-  if (file?.type.startsWith('image/')) emit('select', file)
+  if (file && supportedTypes.has(file.type)) emit('select', file)
 }
 
 const onDrop = (event: DragEvent) => selectFile(event.dataTransfer?.files ?? null)
@@ -53,7 +55,7 @@ const formatSize = (bytes: number) => {
         ref="inputRef"
         class="sr-only"
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         @change="selectFile(($event.target as HTMLInputElement).files)"
       />
     </div>

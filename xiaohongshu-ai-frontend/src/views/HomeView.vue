@@ -1,42 +1,50 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import ImageUploader from '../components/ImageUploader.vue'
-import type { GeneratedDraft } from '../types/generation'
+import type { GenerationInput } from '../types/generation'
 
 const emit = defineEmits<{
-  generated: [draft: GeneratedDraft]
+  generate: [input: GenerationInput]
 }>()
 
 const selectedFile = ref<File | null>(null)
 const previewUrl = ref('')
 const isGenerating = ref(false)
+const preparationError = ref('')
 
 const selectImage = (file: File) => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  preparationError.value = ''
   selectedFile.value = file
   previewUrl.value = URL.createObjectURL(file)
 }
 
-// 静态原型使用本地 Data URL 把图片带到结果页，不发送网络请求。
-const generate = () => {
+const readAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('图片预览读取失败'))
+    reader.readAsDataURL(file)
+  })
+
+const generate = async () => {
   if (!selectedFile.value || isGenerating.value) return
 
   isGenerating.value = true
   const file = selectedFile.value
-  const reader = new FileReader()
 
-  reader.onload = () => {
-    emit('generated', {
-      imageUrl: String(reader.result),
+  try {
+    emit('generate', {
+      file,
+      imageUrl: await readAsDataUrl(file),
       fileName: file.name,
       fileSize: file.size,
     })
+  } catch (error) {
+    preparationError.value = error instanceof Error ? error.message : '图片读取失败，请重新选择'
+  } finally {
     isGenerating.value = false
   }
-  reader.onerror = () => {
-    isGenerating.value = false
-  }
-  reader.readAsDataURL(file)
 }
 
 onBeforeUnmount(() => {
@@ -74,7 +82,9 @@ onBeforeUnmount(() => {
         >
           {{ isGenerating ? '正在生成…' : '生成小红书文案' }}
         </button>
-        <small>{{ selectedFile ? '图片已就绪，可以开始生成' : '请先选择一张图片' }}</small>
+        <small :class="{ error: preparationError }">
+          {{ preparationError || (selectedFile ? '图片已就绪，可以开始生成' : '请先选择一张图片') }}
+        </small>
       </aside>
     </section>
   </div>
@@ -117,6 +127,7 @@ li span {
 }
 .generate-button { width: 100%; margin-top: auto; }
 .action-panel small { margin-top: 12px; color: #aa9da0; font-size: 11px; text-align: center; }
+.action-panel small.error { color: #ff9aaa; }
 @media (max-width: 820px) {
   .home-page { padding: 54px 0 64px; }
   .workspace { grid-template-columns: 1fr; }
