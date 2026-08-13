@@ -6,9 +6,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final String IMAGE_SIZE_LIMIT_MESSAGE =
+            "Image size exceeds limit. Please upload an image smaller than 10MB.";
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                IMAGE_SIZE_LIMIT_MESSAGE,
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
+    }
 
     @ExceptionHandler(GenerationCreationException.class)
     public ResponseEntity<ApiErrorResponse> handleGenerationCreationException(

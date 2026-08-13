@@ -6,12 +6,19 @@ spring:
     username: ${DB_USERNAME}
     password: ${MYSQL_ROOT_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   sql:
     init:
       mode: always
 
 server:
   port: 8080
+  tomcat:
+    # Allow Tomcat to consume a rejected near-limit request so the JSON 413 response reaches clients.
+    max-swallow-size: 12MB
 
 app:
   upload-dir: ${UPLOAD_DIR}

@@ -1,4 +1,5 @@
 export type GenerationStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED'
+export type GenerationFailureType = 'IMAGE_SIZE' | 'IMAGE_FORMAT' | 'AI' | 'NETWORK' | 'OTHER'
 
 export interface GenerationInput {
   file: File
@@ -18,6 +19,7 @@ export interface GeneratedDraft {
   content: string | null
   tags: string[]
   errorMessage: string | null
+  failureType: GenerationFailureType | null
 }
 
 export interface GenerationCreatedResponse {

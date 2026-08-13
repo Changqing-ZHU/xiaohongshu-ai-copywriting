@@ -8,13 +8,19 @@ const emit = defineEmits<{ restart: [] }>()
 
 const statusLabel = computed(() => {
   if (props.draft?.status === 'COMPLETED') return '✓ 生成完成'
-  if (props.draft?.status === 'FAILED') return '生成失败'
+  if (props.draft?.status === 'FAILED') {
+    if (props.draft.failureType === 'IMAGE_SIZE') return '图片过大'
+    if (props.draft.failureType === 'IMAGE_FORMAT') return '图片格式错误'
+    if (props.draft.failureType === 'NETWORK') return '网络错误'
+    if (props.draft.failureType === 'AI') return 'AI 生成失败'
+    return '生成失败'
+  }
   return 'AI 正在生成'
 })
 
 const heading = computed(() => {
   if (props.draft?.status === 'COMPLETED') return '你的灵感文案已准备好'
-  if (props.draft?.status === 'FAILED') return '这次生成没有完成'
+  if (props.draft?.status === 'FAILED') return statusLabel.value
   return '正在读懂你的图片'
 })
 
@@ -68,7 +74,7 @@ const description = computed(() => {
           </template>
           <div v-else class="status-card" :class="{ failed: draft.status === 'FAILED' }">
             <span v-if="draft.status === 'PROCESSING'" class="spinner" aria-hidden="true"></span>
-            <strong>{{ draft.status === 'PROCESSING' ? 'AI 文案生成中' : '生成失败' }}</strong>
+            <strong>{{ draft.status === 'PROCESSING' ? 'AI 文案生成中' : statusLabel }}</strong>
             <p>{{ description }}</p>
           </div>
         </section>

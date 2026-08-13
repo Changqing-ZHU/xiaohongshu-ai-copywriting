@@ -3,7 +3,12 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Navbar from './components/Navbar.vue'
 import HomeView from './views/HomeView.vue'
 import ResultView from './views/ResultView.vue'
-import { createGeneration, getGeneration, uploadGenerationImage } from './services/generationApi'
+import {
+  ApiRequestError,
+  createGeneration,
+  getGeneration,
+  uploadGenerationImage,
+} from './services/generationApi'
 import type { GeneratedDraft, GenerationInput, GenerationResponse } from './types/generation'
 
 const pollIntervalMs = 1200
@@ -39,6 +44,7 @@ const updateFromResponse = (response: GenerationResponse, operation: number) => 
     content: response.content,
     tags: response.tags,
     errorMessage: response.errorMessage,
+    failureType: response.status === 'FAILED' ? 'AI' : null,
   }
 }
 
@@ -84,6 +90,7 @@ const startGeneration = async (input: GenerationInput) => {
     content: null,
     tags: [],
     errorMessage: null,
+    failureType: null,
   }
   navigate('/result')
 
@@ -115,6 +122,7 @@ const startGeneration = async (input: GenerationInput) => {
       ...generatedDraft.value,
       status: 'FAILED',
       errorMessage: error instanceof Error ? error.message : '生成失败，请稍后重试',
+      failureType: error instanceof ApiRequestError ? error.kind : 'OTHER',
     }
   } finally {
     if (operation === activeOperation) activeController = null

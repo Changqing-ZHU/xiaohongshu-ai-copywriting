@@ -11,9 +11,17 @@ const selectedFile = ref<File | null>(null)
 const previewUrl = ref('')
 const isGenerating = ref(false)
 const preparationError = ref('')
+const maxImageSize = 10 * 1024 * 1024
 
 const selectImage = (file: File) => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  if (file.size > maxImageSize) {
+    previewUrl.value = ''
+    selectedFile.value = null
+    preparationError.value = '图片大小超过限制，请上传小于 10MB 的图片。'
+    return
+  }
+
   preparationError.value = ''
   selectedFile.value = file
   previewUrl.value = URL.createObjectURL(file)

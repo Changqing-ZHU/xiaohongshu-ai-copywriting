@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
@@ -55,6 +56,9 @@ class GenerationImageUploadControllerTests {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private MultipartProperties multipartProperties;
 
     @AfterEach
     void deleteUploadedTestFiles() throws IOException {
@@ -103,6 +107,34 @@ class GenerationImageUploadControllerTests {
                 saved.getContent());
         assertEquals("生活记录,治愈日常,氛围感", saved.getTags());
         assertTrue(Path.of(saved.getImagePath()).startsWith(TEST_UPLOAD_DIRECTORY));
+        assertTrue(Files.exists(Path.of(saved.getImagePath())));
+    }
+
+    @Test
+    void acceptsImageSmallerThanTenMegabytes() throws Exception {
+        assertEquals(10L * 1024 * 1024, multipartProperties.getMaxFileSize().toBytes());
+        assertEquals(10L * 1024 * 1024, multipartProperties.getMaxRequestSize().toBytes());
+
+        Generation generation = createGeneration();
+        Long id = generationRepository.insert(generation);
+        byte[] jpegContent = new byte[9 * 1024 * 1024];
+        jpegContent[0] = (byte) 0xFF;
+        jpegContent[1] = (byte) 0xD8;
+        jpegContent[2] = (byte) 0xFF;
+        jpegContent[3] = (byte) 0xE1;
+        MockMultipartFile image = new MockMultipartFile(
+                "image",
+                "phone-photo.jpeg",
+                "application/octet-stream",
+                jpegContent);
+
+        mockMvc.perform(multipart("/api/generations/{id}/image", id).file(image))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+
+        Generation saved = generationRepository.findById(id).orElseThrow();
+        assertEquals((long) jpegContent.length, saved.getImageSize());
+        assertEquals("image/jpeg", saved.getImageContentType());
         assertTrue(Files.exists(Path.of(saved.getImagePath())));
     }
 
