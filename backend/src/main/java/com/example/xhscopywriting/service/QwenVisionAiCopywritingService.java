@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
 import com.example.xhscopywriting.exception.AiServiceException;
@@ -33,18 +34,18 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
 
     private static final String SYSTEM_PROMPT = """
             你是一名小红书内容创作助手。
-            请根据用户上传的图片内容完成图片分析和小红书文案创作。
+            请根据用户提供的一张或多张图片完成内容分析和小红书文案创作。
             必须只返回合法 JSON，不要返回 Markdown 代码块或额外说明。
             JSON 格式必须为：
             {"imageAnalysis":"","title":"","content":"","tags":[]}
             要求：
-            1. imageAnalysis 描述真实看到的图片内容，不编造不存在的元素；
+            1. imageAnalysis 客观总结图片中的真实内容；
             2. title 使用中文、20字以内且有吸引力；
             3. content 使用小红书风格、自然分段，不虚构图片不存在的信息；
             4. tags 返回 3 到 5 个字符串组成的数组。
             """;
 
-    private static final String USER_PROMPT = "请分析这张图片，并生成符合要求的小红书文案。";
+    private static final String USER_PROMPT = "请分析提供的素材，并生成符合要求的小红书文案。";
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -64,10 +65,10 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
     }
 
     @Override
-    public AiCopywritingResult generate(Long generationId, AiImageInfo imageInfo) {
+    public AiCopywritingResult generate(Long generationId, AiCopywritingInput input) {
         validateConfiguration();
-        String dataUrl = createDataUrl(imageInfo);
-        Map<String, Object> requestBody = createRequestBody(dataUrl);
+        validateInput(input);
+        Map<String, Object> requestBody = createRequestBody(input);
 
         final String responseBody;
         try {
@@ -84,6 +85,12 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
         }
 
         return parseResponse(responseBody);
+    }
+
+    private void validateInput(AiCopywritingInput input) {
+        if (input == null || (!input.hasImage() && !input.hasUrlText())) {
+            throw new AiServiceException(INVALID_RESPONSE_MESSAGE);
+        }
     }
 
     private void validateConfiguration() {
@@ -116,21 +123,46 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
         }
     }
 
-    private Map<String, Object> createRequestBody(String dataUrl) {
-        Map<String, Object> imageContent = Map.of(
-                "type", "image_url",
-                "image_url", Map.of("url", dataUrl));
+    private Map<String, Object> createRequestBody(AiCopywritingInput input) {
+        List<Map<String, Object>> userContent = new ArrayList<>();
+        addImageContent(userContent, input.userImage());
+        addImageContent(userContent, input.urlImage());
+
         Map<String, Object> textContent = Map.of(
                 "type", "text",
-                "text", USER_PROMPT);
+                "text", createUserPrompt(input));
+        userContent.add(textContent);
 
         return Map.of(
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content", SYSTEM_PROMPT),
-                        Map.of("role", "user", "content", List.of(imageContent, textContent))),
+                        Map.of("role", "user", "content", List.copyOf(userContent))),
                 "response_format", Map.of("type", "json_object"),
                 "stream", false);
+    }
+
+    private void addImageContent(List<Map<String, Object>> content, AiImageInfo imageInfo) {
+        if (imageInfo == null) {
+            return;
+        }
+        content.add(Map.of(
+                "type", "image_url",
+                "image_url", Map.of("url", createDataUrl(imageInfo))));
+    }
+
+    private String createUserPrompt(AiCopywritingInput input) {
+        StringBuilder prompt = new StringBuilder(USER_PROMPT);
+        if (input.hasUrlText()) {
+            prompt.append("\n以下是从网页提取的参考信息：");
+            if (input.urlTitle() != null && !input.urlTitle().isBlank()) {
+                prompt.append("\n网页标题：").append(input.urlTitle());
+            }
+            if (input.urlDescription() != null && !input.urlDescription().isBlank()) {
+                prompt.append("\n网页描述：").append(input.urlDescription());
+            }
+        }
+        return prompt.toString();
     }
 
     private AiCopywritingResult parseResponse(String responseBody) {

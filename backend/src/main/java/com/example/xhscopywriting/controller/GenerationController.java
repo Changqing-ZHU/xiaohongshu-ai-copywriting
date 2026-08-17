@@ -16,8 +16,10 @@ import org.springframework.web.multipart.MultipartFile;
 import com.example.xhscopywriting.dto.GenerationCreateRequest;
 import com.example.xhscopywriting.dto.GenerationCreatedResponse;
 import com.example.xhscopywriting.dto.GenerationImageUploadedResponse;
+import com.example.xhscopywriting.dto.GenerationProcessingResponse;
 import com.example.xhscopywriting.dto.GenerationResponse;
 import com.example.xhscopywriting.model.Generation;
+import com.example.xhscopywriting.service.GenerationAsyncService;
 import com.example.xhscopywriting.service.GenerationService;
 
 @RestController
@@ -25,9 +27,23 @@ import com.example.xhscopywriting.service.GenerationService;
 public class GenerationController {
 
     private final GenerationService generationService;
+    private final GenerationAsyncService generationAsyncService;
 
-    public GenerationController(GenerationService generationService) {
+    public GenerationController(
+            GenerationService generationService,
+            GenerationAsyncService generationAsyncService) {
         this.generationService = generationService;
+        this.generationAsyncService = generationAsyncService;
+    }
+
+    @PostMapping("/{id}/generate")
+    public ResponseEntity<GenerationProcessingResponse> generateFromStoredInputs(
+            @PathVariable Long id) {
+        Generation generation = generationService.requireUrlInput(id);
+        generationAsyncService.processUrlOnly(id);
+        return ResponseEntity.accepted().body(new GenerationProcessingResponse(
+                generation.getId(),
+                generation.getStatus()));
     }
 
     @PostMapping

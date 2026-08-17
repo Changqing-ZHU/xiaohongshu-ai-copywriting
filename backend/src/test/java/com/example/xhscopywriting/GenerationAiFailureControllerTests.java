@@ -29,7 +29,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.example.xhscopywriting.dto.AiImageInfo;
+import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
 import com.example.xhscopywriting.service.AiCopywritingService;
@@ -75,7 +75,7 @@ class GenerationAiFailureControllerTests {
     void persistsFailedStatusAndKeepsImageWhenAiThrows() throws Exception {
         Generation generation = createGeneration();
         Long id = generationRepository.insert(generation);
-        when(aiCopywritingService.generate(anyLong(), any(AiImageInfo.class)))
+        when(aiCopywritingService.generate(anyLong(), any(AiCopywritingInput.class)))
                 .thenThrow(new IllegalStateException(
                         "Simulated third-party response containing sensitive details"));
         byte[] jpegContent = {

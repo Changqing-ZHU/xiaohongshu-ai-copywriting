@@ -6,6 +6,9 @@ public class Generation {
 
     private Long id;
     private String status;
+    private String sourceUrl;
+    private String urlTitle;
+    private String urlDescription;
     private String originalFileName;
     private String storedFileName;
     private String imagePath;
@@ -33,6 +36,30 @@ public class Generation {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
+    }
+
+    public void setSourceUrl(String sourceUrl) {
+        this.sourceUrl = sourceUrl;
+    }
+
+    public String getUrlTitle() {
+        return urlTitle;
+    }
+
+    public void setUrlTitle(String urlTitle) {
+        this.urlTitle = urlTitle;
+    }
+
+    public String getUrlDescription() {
+        return urlDescription;
+    }
+
+    public void setUrlDescription(String urlDescription) {
+        this.urlDescription = urlDescription;
     }
 
     public String getOriginalFileName() {

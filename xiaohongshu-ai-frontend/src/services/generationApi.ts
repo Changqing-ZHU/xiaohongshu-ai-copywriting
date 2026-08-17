@@ -1,13 +1,20 @@
 import type {
   GenerationCreatedResponse,
   GenerationImageUploadedResponse,
+  GenerationProcessingResponse,
   GenerationResponse,
 } from '../types/generation'
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() ?? ''
 const apiBaseUrl = configuredBaseUrl.replace(/\/$/, '')
 
-export type ApiErrorKind = 'IMAGE_SIZE' | 'IMAGE_FORMAT' | 'AI' | 'NETWORK' | 'OTHER'
+export type ApiErrorKind =
+  | 'IMAGE_SIZE'
+  | 'IMAGE_FORMAT'
+  | 'URL_ACCESS'
+  | 'AI'
+  | 'NETWORK'
+  | 'OTHER'
 
 export class ApiRequestError extends Error {
   readonly kind: ApiErrorKind
@@ -33,8 +40,10 @@ const request = async <T>(path: string, options: RequestInit): Promise<T> => {
   if (!response.ok) {
     const message = typeof payload?.message === 'string' ? payload.message : '请求失败，请稍后重试'
     let kind: ApiErrorKind = 'OTHER'
-    if (response.status === 413) kind = 'IMAGE_SIZE'
+    if (response.status === 413 || message.includes('smaller than 10MB')) kind = 'IMAGE_SIZE'
     else if (response.status === 400 && path.endsWith('/image')) kind = 'IMAGE_FORMAT'
+    else if (message.includes('Unsupported image URL format')) kind = 'IMAGE_FORMAT'
+    else if (message.includes('image URL')) kind = 'URL_ACCESS'
     else if (message === 'Unable to generate copywriting') kind = 'AI'
     throw new ApiRequestError(message, kind)
   }
@@ -42,11 +51,17 @@ const request = async <T>(path: string, options: RequestInit): Promise<T> => {
   return payload as T
 }
 
-export const createGeneration = (signal: AbortSignal) =>
+export const createGeneration = (url: string, signal: AbortSignal) =>
   request<GenerationCreatedResponse>('/api/generations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify({ url: url.trim() || null }),
+    signal,
+  })
+
+export const triggerGeneration = (id: number, signal: AbortSignal) =>
+  request<GenerationProcessingResponse>(`/api/generations/${id}/generate`, {
+    method: 'POST',
     signal,
   })
 

@@ -14,6 +14,24 @@ public class GlobalExceptionHandler {
     private static final String IMAGE_SIZE_LIMIT_MESSAGE =
             "Image size exceeds limit. Please upload an image smaller than 10MB.";
 
+    @ExceptionHandler(InvalidGenerationInputException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidGenerationInputException(
+            InvalidGenerationInputException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                exception.getMessage(),
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(UrlContentException.class)
+    public ResponseEntity<ApiErrorResponse> handleUrlContentException(
+            UrlContentException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                exception.getMessage(),
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceededException(
             MaxUploadSizeExceededException exception) {

@@ -10,7 +10,9 @@ const statusLabel = computed(() => {
   if (props.draft?.status === 'COMPLETED') return '✓ 生成完成'
   if (props.draft?.status === 'FAILED') {
     if (props.draft.failureType === 'IMAGE_SIZE') return '图片过大'
-    if (props.draft.failureType === 'IMAGE_FORMAT') return '图片格式错误'
+    if (props.draft.failureType === 'IMAGE_FORMAT') return '图片格式不支持'
+    if (props.draft.failureType === 'URL_FORMAT') return 'URL格式错误'
+    if (props.draft.failureType === 'URL_ACCESS') return 'URL访问失败'
     if (props.draft.failureType === 'NETWORK') return '网络错误'
     if (props.draft.failureType === 'AI') return 'AI 生成失败'
     return '生成失败'
@@ -48,12 +50,17 @@ const description = computed(() => {
 
       <div class="result-grid">
         <aside class="image-column">
-          <div class="image-card">
+          <div v-if="draft.imageUrl" class="image-card">
             <img :src="draft.imageUrl" :alt="draft.fileName" />
             <div>
               <strong>{{ draft.fileName }}</strong>
               <span>{{ draft.generationId ? `生成任务 #${draft.generationId}` : '正在创建生成任务' }}</span>
             </div>
+          </div>
+          <div v-else class="url-source-card">
+            <span>图片 URL</span>
+            <strong>{{ draft.sourceUrl }}</strong>
+            <small>系统正在下载图片并交给 AI 进行视觉分析</small>
           </div>
           <section class="analysis-card">
             <div class="analysis-heading">
@@ -104,6 +111,13 @@ h1 { margin: 16px 0 8px; color: var(--ink); font-size: clamp(32px, 5vw, 48px); l
 .result-grid { display: grid; grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr); gap: 24px; align-items: start; }
 .image-column, .copy-column { display: grid; gap: 18px; }
 .image-card, .analysis-card, .copy-column { border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
+.url-source-card {
+  padding: 24px; display: grid; gap: 9px; overflow: hidden; border: 1px solid var(--line);
+  border-radius: 22px; background: var(--card); box-shadow: var(--shadow);
+}
+.url-source-card span { color: var(--red); font-size: 12px; font-weight: 800; }
+.url-source-card strong { overflow: hidden; color: var(--ink); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.url-source-card small { color: var(--muted); line-height: 1.6; }
 .image-card, .analysis-card { overflow: hidden; border-radius: 22px; }
 .image-card img { display: block; width: 100%; max-height: 430px; object-fit: contain; background: #f1e9e7; }
 .image-card > div { padding: 15px 18px; display: flex; flex-direction: column; gap: 4px; }

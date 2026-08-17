@@ -1,11 +1,19 @@
 export type GenerationStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED'
-export type GenerationFailureType = 'IMAGE_SIZE' | 'IMAGE_FORMAT' | 'AI' | 'NETWORK' | 'OTHER'
+export type GenerationFailureType =
+  | 'IMAGE_SIZE'
+  | 'IMAGE_FORMAT'
+  | 'URL_FORMAT'
+  | 'URL_ACCESS'
+  | 'AI'
+  | 'NETWORK'
+  | 'OTHER'
 
 export interface GenerationInput {
-  file: File
+  file: File | null
   imageUrl: string
   fileName: string
   fileSize: number
+  url: string
 }
 
 export interface GeneratedDraft {
@@ -20,6 +28,7 @@ export interface GeneratedDraft {
   tags: string[]
   errorMessage: string | null
   failureType: GenerationFailureType | null
+  sourceUrl: string
 }
 
 export interface GenerationCreatedResponse {
@@ -29,6 +38,11 @@ export interface GenerationCreatedResponse {
 }
 
 export interface GenerationImageUploadedResponse {
+  id: number
+  status: GenerationStatus
+}
+
+export interface GenerationProcessingResponse {
   id: number
   status: GenerationStatus
 }

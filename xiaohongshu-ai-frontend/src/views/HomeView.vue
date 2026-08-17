@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import ImageUploader from '../components/ImageUploader.vue'
+import UrlInput from '../components/UrlInput.vue'
 import type { GenerationInput } from '../types/generation'
 
 const emit = defineEmits<{
@@ -8,6 +9,7 @@ const emit = defineEmits<{
 }>()
 
 const selectedFile = ref<File | null>(null)
+const sourceUrl = ref('')
 const previewUrl = ref('')
 const isGenerating = ref(false)
 const preparationError = ref('')
@@ -36,7 +38,12 @@ const readAsDataUrl = (file: File) =>
   })
 
 const generate = async () => {
-  if (!selectedFile.value || isGenerating.value) return
+  if ((!selectedFile.value && !sourceUrl.value.trim()) || isGenerating.value) return
+
+  if (sourceUrl.value.trim() && !isValidHttpUrl(sourceUrl.value)) {
+    preparationError.value = 'URL格式错误，请输入有效的 HTTP 或 HTTPS 地址。'
+    return
+  }
 
   isGenerating.value = true
   const file = selectedFile.value
@@ -44,14 +51,24 @@ const generate = async () => {
   try {
     emit('generate', {
       file,
-      imageUrl: await readAsDataUrl(file),
-      fileName: file.name,
-      fileSize: file.size,
+      imageUrl: file ? await readAsDataUrl(file) : '',
+      fileName: file?.name ?? '',
+      fileSize: file?.size ?? 0,
+      url: sourceUrl.value.trim(),
     })
   } catch (error) {
     preparationError.value = error instanceof Error ? error.message : '图片读取失败，请重新选择'
   } finally {
     isGenerating.value = false
+  }
+}
+
+const isValidHttpUrl = (value: string) => {
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
   }
 }
 
@@ -65,14 +82,18 @@ onBeforeUnmount(() => {
     <section class="hero-copy">
       <span class="eyebrow">AI CONTENT STUDIO</span>
       <h1>一张图片，写出<br /><em>让人心动</em>的小红书文案</h1>
-      <p>上传你的灵感瞬间，即刻获得标题、正文与话题标签。</p>
+      <p>上传图片或粘贴图片链接，即刻获得标题、正文与话题标签。</p>
       <div class="feature-pills" aria-label="产品特点">
         <span>✦ 智能识图</span><span>✦ 自然表达</span><span>✦ 一键复制</span>
       </div>
     </section>
 
     <section class="workspace">
-      <ImageUploader :file="selectedFile" :preview-url="previewUrl" @select="selectImage" />
+      <div class="input-column">
+        <ImageUploader :file="selectedFile" :preview-url="previewUrl" @select="selectImage" />
+        <div class="input-divider"><span>或</span></div>
+        <UrlInput v-model="sourceUrl" />
+      </div>
       <aside class="action-panel">
         <div class="step-label">02</div>
         <h2>生成你的专属文案</h2>
@@ -85,13 +106,13 @@ onBeforeUnmount(() => {
         <button
           class="primary-button generate-button"
           type="button"
-          :disabled="!selectedFile || isGenerating"
+          :disabled="(!selectedFile && !sourceUrl.trim()) || isGenerating"
           @click="generate"
         >
           {{ isGenerating ? '正在生成…' : '生成小红书文案' }}
         </button>
         <small :class="{ error: preparationError }">
-          {{ preparationError || (selectedFile ? '图片已就绪，可以开始生成' : '请先选择一张图片') }}
+          {{ preparationError || (selectedFile || sourceUrl.trim() ? '素材已就绪，可以开始生成' : '请上传图片或输入图片 URL') }}
         </small>
       </aside>
     </section>
@@ -116,6 +137,13 @@ h1 em { color: var(--red); font-style: normal; }
 .workspace {
   display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.75fr);
   gap: 24px; align-items: stretch;
+}
+.input-column { display: grid; align-content: start; }
+.input-divider { position: relative; height: 34px; display: grid; place-items: center; }
+.input-divider::before { position: absolute; width: 100%; height: 1px; content: ''; background: var(--line); }
+.input-divider span {
+  position: relative; z-index: 1; padding: 3px 10px; border-radius: 999px;
+  color: var(--muted); font-size: 11px; background: #fff8f6;
 }
 .action-panel {
   padding: 30px; display: flex; flex-direction: column; border-radius: 24px;

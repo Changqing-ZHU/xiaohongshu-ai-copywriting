@@ -66,4 +66,20 @@ class GenerationControllerTests {
         assertNull(generation.getTags());
         assertNull(generation.getErrorMessage());
     }
+
+    @Test
+    void persistsOptionalSourceUrlWhenCreatingGeneration() throws Exception {
+        String responseBody = mockMvc.perform(post("/api/generations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://example.com/article\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PROCESSING"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Long id = objectMapper.readTree(responseBody).get("id").asLong();
+        Generation generation = generationRepository.findById(id).orElseThrow();
+        assertEquals("https://example.com/article", generation.getSourceUrl());
+    }
 }

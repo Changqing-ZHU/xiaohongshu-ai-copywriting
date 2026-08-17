@@ -30,6 +30,18 @@ ai:
     api-key: ${QWEN_API_KEY:}
     model: ${QWEN_MODEL:}
 
+url-content:
+  connect-timeout: 5s
+  request-timeout: 10s
+  max-image-size: 10MB
+  max-redirects: 3
+
+generation:
+  async:
+    core-pool-size: 2
+    max-pool-size: 4
+    queue-capacity: 50
+
 logging:
   level:
     org.springframework.web.client: INFO

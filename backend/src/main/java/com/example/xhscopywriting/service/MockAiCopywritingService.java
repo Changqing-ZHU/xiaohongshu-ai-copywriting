@@ -2,13 +2,13 @@ package com.example.xhscopywriting.service;
 
 import java.util.List;
 
+import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
-import com.example.xhscopywriting.dto.AiImageInfo;
 
 public class MockAiCopywritingService implements AiCopywritingService {
 
     @Override
-    public AiCopywritingResult generate(Long generationId, AiImageInfo imageInfo) {
+    public AiCopywritingResult generate(Long generationId, AiCopywritingInput input) {
         return new AiCopywritingResult(
                 "模拟图片分析：画面氛围自然，主体清晰，适合分享生活方式内容。",
                 "把普通日子过成喜欢的样子 ✨",

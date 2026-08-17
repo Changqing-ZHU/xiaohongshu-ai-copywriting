@@ -36,6 +36,9 @@ class GenerationRepositoryTests {
 
         Generation result = savedGeneration.orElseThrow();
         assertEquals("COMPLETED", result.getStatus());
+        assertEquals("https://example.com/article", result.getSourceUrl());
+        assertEquals("Example article", result.getUrlTitle());
+        assertEquals("Example description", result.getUrlDescription());
         assertEquals("test-image.jpg", result.getOriginalFileName());
         assertEquals("stored-test-image.jpg", result.getStoredFileName());
         assertEquals("uploads/test/stored-test-image.jpg", result.getImagePath());
@@ -52,6 +55,9 @@ class GenerationRepositoryTests {
     private Generation createTestGeneration(LocalDateTime now) {
         Generation generation = new Generation();
         generation.setStatus("COMPLETED");
+        generation.setSourceUrl("https://example.com/article");
+        generation.setUrlTitle("Example article");
+        generation.setUrlDescription("Example description");
         generation.setOriginalFileName("test-image.jpg");
         generation.setStoredFileName("stored-test-image.jpg");
         generation.setImagePath("uploads/test/stored-test-image.jpg");

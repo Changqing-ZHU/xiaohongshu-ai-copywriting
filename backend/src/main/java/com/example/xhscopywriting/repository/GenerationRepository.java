@@ -20,6 +20,9 @@ public class GenerationRepository {
     private static final String INSERT_SQL = """
             INSERT INTO generations (
                 status,
+                source_url,
+                url_title,
+                url_description,
                 original_file_name,
                 stored_file_name,
                 image_path,
@@ -32,13 +35,16 @@ public class GenerationRepository {
                 error_message,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String FIND_BY_ID_SQL = """
             SELECT
                 id,
                 status,
+                source_url,
+                url_title,
+                url_description,
                 original_file_name,
                 stored_file_name,
                 image_path,
@@ -52,6 +58,14 @@ public class GenerationRepository {
                 created_at,
                 updated_at
             FROM generations
+            WHERE id = ?
+            """;
+
+    private static final String UPDATE_URL_CONTENT_SQL = """
+            UPDATE generations
+            SET url_title = ?,
+                url_description = ?,
+                updated_at = ?
             WHERE id = ?
             """;
 
@@ -100,18 +114,21 @@ public class GenerationRepository {
                     INSERT_SQL,
                     Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, generation.getStatus());
-            statement.setString(2, generation.getOriginalFileName());
-            statement.setString(3, generation.getStoredFileName());
-            statement.setString(4, generation.getImagePath());
-            statement.setString(5, generation.getImageContentType());
-            statement.setObject(6, generation.getImageSize(), Types.BIGINT);
-            statement.setString(7, generation.getImageAnalysis());
-            statement.setString(8, generation.getTitle());
-            statement.setString(9, generation.getContent());
-            statement.setString(10, generation.getTags());
-            statement.setString(11, generation.getErrorMessage());
-            statement.setTimestamp(12, Timestamp.valueOf(generation.getCreatedAt()));
-            statement.setTimestamp(13, Timestamp.valueOf(generation.getUpdatedAt()));
+            statement.setString(2, generation.getSourceUrl());
+            statement.setString(3, generation.getUrlTitle());
+            statement.setString(4, generation.getUrlDescription());
+            statement.setString(5, generation.getOriginalFileName());
+            statement.setString(6, generation.getStoredFileName());
+            statement.setString(7, generation.getImagePath());
+            statement.setString(8, generation.getImageContentType());
+            statement.setObject(9, generation.getImageSize(), Types.BIGINT);
+            statement.setString(10, generation.getImageAnalysis());
+            statement.setString(11, generation.getTitle());
+            statement.setString(12, generation.getContent());
+            statement.setString(13, generation.getTags());
+            statement.setString(14, generation.getErrorMessage());
+            statement.setTimestamp(15, Timestamp.valueOf(generation.getCreatedAt()));
+            statement.setTimestamp(16, Timestamp.valueOf(generation.getUpdatedAt()));
             return statement;
         }, keyHolder);
 
@@ -130,6 +147,9 @@ public class GenerationRepository {
             Generation generation = new Generation();
             generation.setId(resultSet.getLong("id"));
             generation.setStatus(resultSet.getString("status"));
+            generation.setSourceUrl(resultSet.getString("source_url"));
+            generation.setUrlTitle(resultSet.getString("url_title"));
+            generation.setUrlDescription(resultSet.getString("url_description"));
             generation.setOriginalFileName(resultSet.getString("original_file_name"));
             generation.setStoredFileName(resultSet.getString("stored_file_name"));
             generation.setImagePath(resultSet.getString("image_path"));
@@ -144,6 +164,19 @@ public class GenerationRepository {
             generation.setUpdatedAt(resultSet.getTimestamp("updated_at").toLocalDateTime());
             return generation;
         }, id).stream().findFirst();
+    }
+
+    public int updateUrlContent(
+            Long id,
+            String urlTitle,
+            String urlDescription,
+            LocalDateTime updatedAt) {
+        return jdbcTemplate.update(
+                UPDATE_URL_CONTENT_SQL,
+                urlTitle,
+                urlDescription,
+                Timestamp.valueOf(updatedAt),
+                id);
     }
 
     public int updateImageInfo(

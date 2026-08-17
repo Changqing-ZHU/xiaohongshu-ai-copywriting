@@ -7,12 +7,21 @@ import {
   ApiRequestError,
   createGeneration,
   getGeneration,
+  triggerGeneration,
   uploadGenerationImage,
 } from './services/generationApi'
 import type { GeneratedDraft, GenerationInput, GenerationResponse } from './types/generation'
 
 const pollIntervalMs = 1200
 const maxPollAttempts = 60
+
+const classifyFailure = (message: string | null) => {
+  if (!message) return 'AI' as const
+  if (message.includes('smaller than 10MB')) return 'IMAGE_SIZE' as const
+  if (message.includes('Unsupported image URL format')) return 'IMAGE_FORMAT' as const
+  if (message.includes('image URL')) return 'URL_ACCESS' as const
+  return 'AI' as const
+}
 
 const currentPath = ref(window.location.pathname)
 const generatedDraft = ref<GeneratedDraft | null>(null)
@@ -44,7 +53,9 @@ const updateFromResponse = (response: GenerationResponse, operation: number) => 
     content: response.content,
     tags: response.tags,
     errorMessage: response.errorMessage,
-    failureType: response.status === 'FAILED' ? 'AI' : null,
+    failureType: response.status === 'FAILED'
+      ? classifyFailure(response.errorMessage)
+      : null,
   }
 }
 
@@ -91,11 +102,12 @@ const startGeneration = async (input: GenerationInput) => {
     tags: [],
     errorMessage: null,
     failureType: null,
+    sourceUrl: input.url,
   }
   navigate('/result')
 
   try {
-    const created = await createGeneration(controller.signal)
+    const created = await createGeneration(input.url, controller.signal)
     if (operation !== activeOperation || !generatedDraft.value) return
     generatedDraft.value = {
       ...generatedDraft.value,
@@ -103,14 +115,18 @@ const startGeneration = async (input: GenerationInput) => {
       status: created.status,
     }
 
-    try {
-      await uploadGenerationImage(created.id, input.file, controller.signal)
-    } catch (uploadError) {
-      // AI failures return an HTTP error after the backend has persisted FAILED.
-      const response = await getGeneration(created.id, controller.signal)
-      updateFromResponse(response, operation)
-      if (response.status === 'FAILED') return
-      throw uploadError
+    if (input.file) {
+      try {
+        await uploadGenerationImage(created.id, input.file, controller.signal)
+      } catch (uploadError) {
+        // AI failures return an HTTP error after the backend has persisted FAILED.
+        const response = await getGeneration(created.id, controller.signal)
+        updateFromResponse(response, operation)
+        if (response.status === 'FAILED') return
+        throw uploadError
+      }
+    } else {
+      await triggerGeneration(created.id, controller.signal)
     }
 
     await pollGeneration(created.id, controller.signal, operation)
