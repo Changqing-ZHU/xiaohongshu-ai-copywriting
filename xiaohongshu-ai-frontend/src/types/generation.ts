@@ -1,4 +1,5 @@
 export type GenerationStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED'
+export type CopywritingStyle = 'daily' | 'recommend' | 'review' | 'healing' | 'minimal'
 export type GenerationFailureType =
   | 'IMAGE_SIZE'
   | 'IMAGE_FORMAT'
@@ -14,6 +15,7 @@ export interface GenerationInput {
   fileName: string
   fileSize: number
   url: string
+  style: CopywritingStyle
 }
 
 export interface GeneratedDraft {
@@ -57,4 +59,14 @@ export interface GenerationResponse {
   content: string | null
   tags: string[]
   errorMessage: string | null
+}
+
+export interface GenerationHistoryItem {
+  id: number
+  status: GenerationStatus
+  imageUrl: string | null
+  title: string | null
+  content: string | null
+  tags: string[]
+  createdAt: string
 }

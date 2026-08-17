@@ -82,4 +82,14 @@ class GenerationControllerTests {
         Generation generation = generationRepository.findById(id).orElseThrow();
         assertEquals("https://example.com/article", generation.getSourceUrl());
     }
+
+    @Test
+    void acceptsOptionalCopywritingStyleWhenCreatingGeneration() throws Exception {
+        mockMvc.perform(post("/api/generations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"style\":\"healing\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.status").value("PROCESSING"));
+    }
 }

@@ -5,9 +5,11 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -60,6 +62,51 @@ public class GenerationRepository {
             FROM generations
             WHERE id = ?
             """;
+
+    private static final String FIND_ALL_SQL = """
+            SELECT
+                id,
+                status,
+                source_url,
+                url_title,
+                url_description,
+                original_file_name,
+                stored_file_name,
+                image_path,
+                image_content_type,
+                image_size,
+                image_analysis,
+                title,
+                content,
+                tags,
+                error_message,
+                created_at,
+                updated_at
+            FROM generations
+            ORDER BY created_at DESC, id DESC
+            """;
+
+    private static final RowMapper<Generation> GENERATION_ROW_MAPPER = (resultSet, rowNumber) -> {
+        Generation generation = new Generation();
+        generation.setId(resultSet.getLong("id"));
+        generation.setStatus(resultSet.getString("status"));
+        generation.setSourceUrl(resultSet.getString("source_url"));
+        generation.setUrlTitle(resultSet.getString("url_title"));
+        generation.setUrlDescription(resultSet.getString("url_description"));
+        generation.setOriginalFileName(resultSet.getString("original_file_name"));
+        generation.setStoredFileName(resultSet.getString("stored_file_name"));
+        generation.setImagePath(resultSet.getString("image_path"));
+        generation.setImageContentType(resultSet.getString("image_content_type"));
+        generation.setImageSize(resultSet.getObject("image_size", Long.class));
+        generation.setImageAnalysis(resultSet.getString("image_analysis"));
+        generation.setTitle(resultSet.getString("title"));
+        generation.setContent(resultSet.getString("content"));
+        generation.setTags(resultSet.getString("tags"));
+        generation.setErrorMessage(resultSet.getString("error_message"));
+        generation.setCreatedAt(resultSet.getTimestamp("created_at").toLocalDateTime());
+        generation.setUpdatedAt(resultSet.getTimestamp("updated_at").toLocalDateTime());
+        return generation;
+    };
 
     private static final String UPDATE_URL_CONTENT_SQL = """
             UPDATE generations
@@ -143,27 +190,13 @@ public class GenerationRepository {
     }
 
     public Optional<Generation> findById(Long id) {
-        return jdbcTemplate.query(FIND_BY_ID_SQL, (resultSet, rowNumber) -> {
-            Generation generation = new Generation();
-            generation.setId(resultSet.getLong("id"));
-            generation.setStatus(resultSet.getString("status"));
-            generation.setSourceUrl(resultSet.getString("source_url"));
-            generation.setUrlTitle(resultSet.getString("url_title"));
-            generation.setUrlDescription(resultSet.getString("url_description"));
-            generation.setOriginalFileName(resultSet.getString("original_file_name"));
-            generation.setStoredFileName(resultSet.getString("stored_file_name"));
-            generation.setImagePath(resultSet.getString("image_path"));
-            generation.setImageContentType(resultSet.getString("image_content_type"));
-            generation.setImageSize(resultSet.getObject("image_size", Long.class));
-            generation.setImageAnalysis(resultSet.getString("image_analysis"));
-            generation.setTitle(resultSet.getString("title"));
-            generation.setContent(resultSet.getString("content"));
-            generation.setTags(resultSet.getString("tags"));
-            generation.setErrorMessage(resultSet.getString("error_message"));
-            generation.setCreatedAt(resultSet.getTimestamp("created_at").toLocalDateTime());
-            generation.setUpdatedAt(resultSet.getTimestamp("updated_at").toLocalDateTime());
-            return generation;
-        }, id).stream().findFirst();
+        return jdbcTemplate.query(FIND_BY_ID_SQL, GENERATION_ROW_MAPPER, id)
+                .stream()
+                .findFirst();
+    }
+
+    public List<Generation> findAll() {
+        return jdbcTemplate.query(FIND_ALL_SQL, GENERATION_ROW_MAPPER);
     }
 
     public int updateUrlContent(

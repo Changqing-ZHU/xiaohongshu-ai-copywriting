@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import ImageUploader from '../components/ImageUploader.vue'
+import StyleSelector from '../components/StyleSelector.vue'
 import UrlInput from '../components/UrlInput.vue'
-import type { GenerationInput } from '../types/generation'
+import type { CopywritingStyle, GenerationInput } from '../types/generation'
 
 const emit = defineEmits<{
   generate: [input: GenerationInput]
@@ -10,6 +11,7 @@ const emit = defineEmits<{
 
 const selectedFile = ref<File | null>(null)
 const sourceUrl = ref('')
+const selectedStyle = ref<CopywritingStyle>('daily')
 const previewUrl = ref('')
 const isGenerating = ref(false)
 const preparationError = ref('')
@@ -55,6 +57,7 @@ const generate = async () => {
       fileName: file?.name ?? '',
       fileSize: file?.size ?? 0,
       url: sourceUrl.value.trim(),
+      style: selectedStyle.value,
     })
   } catch (error) {
     preparationError.value = error instanceof Error ? error.message : '图片读取失败，请重新选择'
@@ -93,9 +96,10 @@ onBeforeUnmount(() => {
         <ImageUploader :file="selectedFile" :preview-url="previewUrl" @select="selectImage" />
         <div class="input-divider"><span>或</span></div>
         <UrlInput v-model="sourceUrl" />
+        <StyleSelector v-model="selectedStyle" />
       </div>
       <aside class="action-panel">
-        <div class="step-label">02</div>
+        <div class="step-label">03</div>
         <h2>生成你的专属文案</h2>
         <p>我们将分析图片内容，并生成贴近小红书社区表达习惯的完整文案。</p>
         <ul>

@@ -2,6 +2,8 @@ package com.example.xhscopywriting.exception;
 
 import java.time.LocalDateTime;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,6 +12,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private static final String IMAGE_SIZE_LIMIT_MESSAGE =
             "Image size exceeds limit. Please upload an image smaller than 10MB.";
@@ -59,6 +63,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(GenerationImageNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleGenerationImageNotFoundException(
+            GenerationImageNotFoundException exception) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                "Generation image not found",
+                LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(InvalidImageException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidImageException(
             InvalidImageException exception) {
@@ -79,6 +92,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GenerationProcessingException.class)
     public ResponseEntity<ApiErrorResponse> handleGenerationProcessingException(
             GenerationProcessingException exception) {
+        Throwable cause = exception.getCause();
+        LOGGER.warn(
+                "Returning AI generation failure response: exceptionType={}, causeType={}",
+                exception.getClass().getSimpleName(),
+                cause == null ? "none" : cause.getClass().getSimpleName());
         ApiErrorResponse response = new ApiErrorResponse(
                 "Unable to generate copywriting",
                 LocalDateTime.now());

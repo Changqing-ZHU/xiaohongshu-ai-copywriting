@@ -80,6 +80,8 @@ class QwenVisionAiCopywritingServiceTests {
                 .andExpect(jsonPath("$.messages[1].content[0].image_url.url")
                         .value("data:image/jpeg;base64,/9j/4AAQ"))
                 .andExpect(jsonPath("$.messages[1].content[0].originalFileName").doesNotExist())
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("日常分享")))
                 .andExpect(jsonPath("$.response_format.type").value("json_object"))
                 .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
 
@@ -89,6 +91,66 @@ class QwenVisionAiCopywritingServiceTests {
         assertEquals("一杯咖啡的治愈时刻", result.title());
         assertEquals("慢下来，享受眼前这一杯咖啡。", result.content());
         assertEquals(List.of("咖啡日常", "生活记录", "治愈时刻"), result.tags());
+        mockServer.verify();
+    }
+
+    @Test
+    void addsSelectedCopywritingStyleToPrompt() throws Exception {
+        String resultJson = objectMapper.writeValueAsString(Map.of(
+                "imageAnalysis", "商品图片分析",
+                "title", "真实体验分享",
+                "content", "这是基于使用体验生成的正文。",
+                "tags", List.of("使用体验", "好物分享", "种草")));
+        String providerResponse = objectMapper.writeValueAsString(Map.of(
+                "choices", List.of(Map.of(
+                        "message", Map.of("content", resultJson)))));
+
+        mockServer.expect(once(), requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("种草推荐")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("核心卖点")))
+                .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
+
+        AiCopywritingInput input = new AiCopywritingInput(
+                imageInfo(),
+                null,
+                null,
+                null,
+                "recommend");
+        AiCopywritingResult result = createService(API_KEY).generate(11L, input);
+
+        assertEquals("真实体验分享", result.title());
+        mockServer.verify();
+    }
+
+    @Test
+    void supportsDifferentCopywritingStyleInRequest() throws Exception {
+        String resultJson = objectMapper.writeValueAsString(Map.of(
+                "imageAnalysis", "产品细节分析",
+                "title", "客观测评结果",
+                "content", "从优缺点出发进行客观分析。",
+                "tags", List.of("专业测评", "优缺点", "真实体验")));
+        String providerResponse = objectMapper.writeValueAsString(Map.of(
+                "choices", List.of(Map.of(
+                        "message", Map.of("content", resultJson)))));
+
+        mockServer.expect(once(), requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("专业测评")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("优缺点")))
+                .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
+
+        AiCopywritingInput input = new AiCopywritingInput(
+                imageInfo(),
+                null,
+                null,
+                null,
+                "review");
+        AiCopywritingResult result = createService(API_KEY).generate(12L, input);
+
+        assertEquals("客观测评结果", result.title());
         mockServer.verify();
     }
 

@@ -1,8 +1,13 @@
 package com.example.xhscopywriting.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,12 +16,14 @@ import org.springframework.web.multipart.MultipartFile;
 import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
+import com.example.xhscopywriting.dto.CopywritingStyles;
 import com.example.xhscopywriting.dto.DownloadedImage;
 import com.example.xhscopywriting.dto.GenerationCreateRequest;
 import com.example.xhscopywriting.dto.ImageStorageResult;
 import com.example.xhscopywriting.exception.GenerationCreationException;
 import com.example.xhscopywriting.exception.GenerationNotFoundException;
 import com.example.xhscopywriting.exception.GenerationProcessingException;
+import com.example.xhscopywriting.exception.AiServiceException;
 import com.example.xhscopywriting.exception.ImageUploadException;
 import com.example.xhscopywriting.exception.InvalidGenerationInputException;
 import com.example.xhscopywriting.exception.InvalidImageException;
@@ -26,6 +33,8 @@ import com.example.xhscopywriting.repository.GenerationRepository;
 
 @Service
 public class GenerationService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GenerationService.class);
 
     private static final String INITIAL_STATUS = "PROCESSING";
     private static final String COMPLETED_STATUS = "COMPLETED";
@@ -42,6 +51,7 @@ public class GenerationService {
     private final ImageStorageService imageStorageService;
     private final UrlContentService urlContentService;
     private final AiCopywritingService aiCopywritingService;
+    private final Map<Long, String> generationStyles = new ConcurrentHashMap<>();
 
     public GenerationService(
             GenerationRepository generationRepository,
@@ -67,6 +77,7 @@ public class GenerationService {
 
         try {
             generationRepository.insert(generation);
+            generationStyles.put(generation.getId(), CopywritingStyles.normalize(request.style()));
             return generation;
         } catch (DataAccessException | IllegalStateException exception) {
             throw new GenerationCreationException("Failed to persist generation task", exception);
@@ -77,6 +88,11 @@ public class GenerationService {
     public Generation findById(Long id) {
         return generationRepository.findById(id)
                 .orElseThrow(() -> new GenerationNotFoundException(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Generation> findAll() {
+        return generationRepository.findAll();
     }
 
     @Transactional(readOnly = true)
@@ -113,7 +129,10 @@ public class GenerationService {
                     userImage,
                     preparedUrl == null ? null : preparedUrl.imageInfo(),
                     null,
-                    null);
+                    null,
+                    generationStyles.getOrDefault(
+                            generation.getId(),
+                            CopywritingStyles.DEFAULT));
 
             if (!aiInput.hasImage() && !aiInput.hasUrlText()) {
                 markFailedAndThrow(generation, SAFE_URL_ACCESS_FAILURE_MESSAGE, null);
@@ -123,6 +142,11 @@ public class GenerationService {
             try {
                 aiResult = aiCopywritingService.generate(generation.getId(), aiInput);
             } catch (RuntimeException exception) {
+                LOGGER.error(
+                        "AI generation failed: generationId={}, exceptionType={}, reason={}",
+                        generation.getId(),
+                        exception.getClass().getSimpleName(),
+                        safeAiReason(exception));
                 markFailedAndThrow(generation, SAFE_AI_FAILURE_MESSAGE, exception);
                 throw exception;
             }
@@ -150,6 +174,7 @@ public class GenerationService {
             generation.setUpdatedAt(completedAt);
             return generation;
         } finally {
+            generationStyles.remove(generation.getId());
             if (preparedUrl != null && preparedUrl.temporaryStoredImage() != null) {
                 imageStorageService.deleteStoredFile(preparedUrl.temporaryStoredImage());
             }
@@ -279,6 +304,15 @@ public class GenerationService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String safeAiReason(RuntimeException exception) {
+        String message = exception instanceof AiServiceException
+                ? exception.getMessage()
+                : null;
+        return message == null || message.isBlank()
+                ? "unspecified AI service failure"
+                : message;
     }
 
     private record PreparedUrlInput(

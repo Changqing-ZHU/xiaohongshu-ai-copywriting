@@ -4,7 +4,16 @@ public record AiCopywritingInput(
         AiImageInfo userImage,
         AiImageInfo urlImage,
         String urlTitle,
-        String urlDescription) {
+        String urlDescription,
+        String style) {
+
+    public AiCopywritingInput(
+            AiImageInfo userImage,
+            AiImageInfo urlImage,
+            String urlTitle,
+            String urlDescription) {
+        this(userImage, urlImage, urlTitle, urlDescription, CopywritingStyles.DEFAULT);
+    }
 
     public boolean hasImage() {
         return userImage != null || urlImage != null;

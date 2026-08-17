@@ -1,7 +1,9 @@
 package com.example.xhscopywriting.controller;
 
 import java.net.URI;
+import java.util.List;
 
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,11 +17,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.example.xhscopywriting.dto.GenerationCreateRequest;
 import com.example.xhscopywriting.dto.GenerationCreatedResponse;
+import com.example.xhscopywriting.dto.GenerationHistoryResponse;
+import com.example.xhscopywriting.dto.GenerationImageResource;
 import com.example.xhscopywriting.dto.GenerationImageUploadedResponse;
 import com.example.xhscopywriting.dto.GenerationProcessingResponse;
 import com.example.xhscopywriting.dto.GenerationResponse;
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.service.GenerationAsyncService;
+import com.example.xhscopywriting.service.GenerationImageResourceService;
 import com.example.xhscopywriting.service.GenerationService;
 
 @RestController
@@ -28,12 +33,15 @@ public class GenerationController {
 
     private final GenerationService generationService;
     private final GenerationAsyncService generationAsyncService;
+    private final GenerationImageResourceService generationImageResourceService;
 
     public GenerationController(
             GenerationService generationService,
-            GenerationAsyncService generationAsyncService) {
+            GenerationAsyncService generationAsyncService,
+            GenerationImageResourceService generationImageResourceService) {
         this.generationService = generationService;
         this.generationAsyncService = generationAsyncService;
+        this.generationImageResourceService = generationImageResourceService;
     }
 
     @PostMapping("/{id}/generate")
@@ -67,6 +75,24 @@ public class GenerationController {
     public ResponseEntity<GenerationResponse> findGenerationById(@PathVariable Long id) {
         Generation generation = generationService.findById(id);
         return ResponseEntity.ok(GenerationResponse.from(generation));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<GenerationHistoryResponse>> findAllGenerations() {
+        List<GenerationHistoryResponse> response = generationService.findAll()
+                .stream()
+                .map(GenerationHistoryResponse::from)
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/image")
+    public ResponseEntity<Resource> findGenerationImage(@PathVariable Long id) {
+        GenerationImageResource image = generationImageResourceService.load(id);
+        return ResponseEntity.ok()
+                .contentType(image.contentType())
+                .contentLength(image.contentLength())
+                .body(image.resource());
     }
 
     @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

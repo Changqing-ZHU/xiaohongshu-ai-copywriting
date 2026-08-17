@@ -3,7 +3,12 @@ import { computed } from 'vue'
 import CopyCard from '../components/CopyCard.vue'
 import type { GeneratedDraft } from '../types/generation'
 
-const props = defineProps<{ draft: GeneratedDraft | null }>()
+const props = withDefaults(defineProps<{
+  draft: GeneratedDraft | null
+  returnLabel?: string
+}>(), {
+  returnLabel: '返回重新生成',
+})
 const emit = defineEmits<{ restart: [] }>()
 
 const statusLabel = computed(() => {
@@ -45,7 +50,7 @@ const description = computed(() => {
           <h1>{{ heading }}</h1>
           <p>{{ description }}</p>
         </div>
-        <button class="secondary-button" type="button" @click="emit('restart')">返回重新生成</button>
+        <button class="secondary-button" type="button" @click="emit('restart')">{{ returnLabel }}</button>
       </header>
 
       <div class="result-grid">

@@ -1,5 +1,7 @@
 import type {
+  CopywritingStyle,
   GenerationCreatedResponse,
+  GenerationHistoryItem,
   GenerationImageUploadedResponse,
   GenerationProcessingResponse,
   GenerationResponse,
@@ -7,6 +9,11 @@ import type {
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() ?? ''
 const apiBaseUrl = configuredBaseUrl.replace(/\/$/, '')
+
+export const resolveApiUrl = (path: string) => {
+  if (/^https?:\/\//i.test(path)) return path
+  return `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`
+}
 
 export type ApiErrorKind =
   | 'IMAGE_SIZE'
@@ -51,11 +58,11 @@ const request = async <T>(path: string, options: RequestInit): Promise<T> => {
   return payload as T
 }
 
-export const createGeneration = (url: string, signal: AbortSignal) =>
+export const createGeneration = (url: string, style: CopywritingStyle, signal: AbortSignal) =>
   request<GenerationCreatedResponse>('/api/generations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: url.trim() || null }),
+    body: JSON.stringify({ url: url.trim() || null, style }),
     signal,
   })
 
@@ -78,6 +85,12 @@ export const uploadGenerationImage = (id: number, image: File, signal: AbortSign
 
 export const getGeneration = (id: number, signal: AbortSignal) =>
   request<GenerationResponse>(`/api/generations/${id}`, {
+    method: 'GET',
+    signal,
+  })
+
+export const getGenerationHistory = (signal: AbortSignal) =>
+  request<GenerationHistoryItem[]>('/api/generations', {
     method: 'GET',
     signal,
   })

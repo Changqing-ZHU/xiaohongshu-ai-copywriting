@@ -15,7 +15,21 @@ const emit = defineEmits<{
       </a>
       <nav aria-label="主要导航">
         <a href="/" :class="{ active: activePath === '/' }" @click.prevent="emit('navigate', '/')">
+          首页
+        </a>
+        <a
+          href="/workbench"
+          :class="{ active: activePath === '/workbench' || activePath === '/result' }"
+          @click.prevent="emit('navigate', '/workbench')"
+        >
           文案生成
+        </a>
+        <a
+          href="/history"
+          :class="{ active: activePath === '/history' }"
+          @click.prevent="emit('navigate', '/history')"
+        >
+          历史记录
         </a>
         <span class="stage-badge">AI 生成</span>
       </nav>
@@ -89,5 +103,10 @@ nav a.active::after {
 @media (max-width: 700px) {
   .navbar-inner { width: calc(100% - 24px); height: 64px; }
   .stage-badge { display: none; }
+}
+@media (max-width: 460px) {
+  .brand > span:last-child { display: none; }
+  nav { gap: 14px; }
+  nav a { font-size: 13px; }
 }
 </style>

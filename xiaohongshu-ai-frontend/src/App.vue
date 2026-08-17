@@ -2,15 +2,23 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Navbar from './components/Navbar.vue'
 import HomeView from './views/HomeView.vue'
+import HistoryView from './views/HistoryView.vue'
+import LandingView from './views/LandingView.vue'
 import ResultView from './views/ResultView.vue'
 import {
   ApiRequestError,
   createGeneration,
   getGeneration,
+  resolveApiUrl,
   triggerGeneration,
   uploadGenerationImage,
 } from './services/generationApi'
-import type { GeneratedDraft, GenerationInput, GenerationResponse } from './types/generation'
+import type {
+  GeneratedDraft,
+  GenerationHistoryItem,
+  GenerationInput,
+  GenerationResponse,
+} from './types/generation'
 
 const pollIntervalMs = 1200
 const maxPollAttempts = 60
@@ -25,6 +33,7 @@ const classifyFailure = (message: string | null) => {
 
 const currentPath = ref(window.location.pathname)
 const generatedDraft = ref<GeneratedDraft | null>(null)
+const resultReturnPath = ref('/workbench')
 let activeController: AbortController | null = null
 let activeOperation = 0
 
@@ -89,6 +98,7 @@ const startGeneration = async (input: GenerationInput) => {
   const controller = new AbortController()
   activeController = controller
   const operation = ++activeOperation
+  resultReturnPath.value = '/workbench'
 
   generatedDraft.value = {
     generationId: null,
@@ -107,7 +117,7 @@ const startGeneration = async (input: GenerationInput) => {
   navigate('/result')
 
   try {
-    const created = await createGeneration(input.url, controller.signal)
+    const created = await createGeneration(input.url, input.style, controller.signal)
     if (operation !== activeOperation || !generatedDraft.value) return
     generatedDraft.value = {
       ...generatedDraft.value,
@@ -145,13 +155,54 @@ const startGeneration = async (input: GenerationInput) => {
   }
 }
 
-const restart = () => {
+const openHistoryRecord = async (record: GenerationHistoryItem) => {
+  activeController?.abort()
+  const controller = new AbortController()
+  activeController = controller
+  const operation = ++activeOperation
+  resultReturnPath.value = '/history'
+  generatedDraft.value = {
+    generationId: record.id,
+    imageUrl: record.imageUrl ? resolveApiUrl(record.imageUrl) : '',
+    fileName: record.title || `历史记录 #${record.id}`,
+    fileSize: 0,
+    status: record.status,
+    imageAnalysis: null,
+    title: record.title,
+    content: record.content,
+    tags: record.tags,
+    errorMessage: null,
+    failureType: record.status === 'FAILED' ? 'AI' : null,
+    sourceUrl: '',
+  }
+  navigate('/result')
+
+  try {
+    const response = await getGeneration(record.id, controller.signal)
+    updateFromResponse(response, operation)
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    if (operation !== activeOperation || !generatedDraft.value) return
+    generatedDraft.value = {
+      ...generatedDraft.value,
+      status: 'FAILED',
+      errorMessage: error instanceof Error ? error.message : '历史详情加载失败，请稍后重试。',
+      failureType: error instanceof ApiRequestError ? error.kind : 'OTHER',
+    }
+  } finally {
+    if (operation === activeOperation) activeController = null
+  }
+}
+
+const handleNavigation = (path: string) => {
   activeController?.abort()
   activeController = null
   activeOperation += 1
   generatedDraft.value = null
-  navigate('/')
+  navigate(path)
 }
+
+const leaveResult = () => handleNavigation(resultReturnPath.value)
 
 onMounted(() => window.addEventListener('popstate', syncPath))
 onBeforeUnmount(() => {
@@ -162,14 +213,20 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-shell">
-    <Navbar :active-path="currentPath" @navigate="restart" />
+    <Navbar :active-path="currentPath" @navigate="handleNavigation" />
     <main>
       <ResultView
         v-if="currentPath === '/result'"
         :draft="generatedDraft"
-        @restart="restart"
+        :return-label="resultReturnPath === '/history' ? '返回历史记录' : '返回重新生成'"
+        @restart="leaveResult"
       />
-      <HomeView v-else @generate="startGeneration" />
+      <HistoryView
+        v-else-if="currentPath === '/history'"
+        @select="openHistoryRecord"
+      />
+      <HomeView v-else-if="currentPath === '/workbench'" @generate="startGeneration" />
+      <LandingView v-else @start="handleNavigation('/workbench')" />
     </main>
   </div>
 </template>

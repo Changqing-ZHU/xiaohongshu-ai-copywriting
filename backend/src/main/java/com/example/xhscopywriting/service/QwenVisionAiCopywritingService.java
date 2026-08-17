@@ -9,19 +9,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
+import com.example.xhscopywriting.dto.CopywritingStyles;
 import com.example.xhscopywriting.exception.AiServiceException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class QwenVisionAiCopywritingService implements AiCopywritingService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(
+            QwenVisionAiCopywritingService.class);
 
     static final String VISION_UNAVAILABLE_MESSAGE = "Qwen vision model unavailable";
     static final String INVALID_RESPONSE_MESSAGE = "Qwen vision response invalid";
@@ -66,9 +73,18 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
 
     @Override
     public AiCopywritingResult generate(Long generationId, AiCopywritingInput input) {
-        validateConfiguration();
-        validateInput(input);
-        Map<String, Object> requestBody = createRequestBody(input);
+        final Map<String, Object> requestBody;
+        try {
+            validateConfiguration();
+            validateInput(input);
+            requestBody = createRequestBody(input);
+        } catch (AiServiceException exception) {
+            LOGGER.error(
+                    "Qwen request preparation failed: generationId={}, reason={}",
+                    generationId,
+                    exception.getMessage());
+            throw exception;
+        }
 
         final String responseBody;
         try {
@@ -79,12 +95,29 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
                     .body(requestBody)
                     .retrieve()
                     .body(String.class);
+        } catch (RestClientResponseException exception) {
+            LOGGER.error(
+                    "Qwen API request failed: generationId={}, httpStatus={}",
+                    generationId,
+                    exception.getStatusCode().value());
+            throw new AiServiceException(VISION_UNAVAILABLE_MESSAGE, exception);
         } catch (RestClientException exception) {
-            // Do not expose provider response bodies, credentials, or local paths.
+            LOGGER.error(
+                    "Qwen API request failed: generationId={}, exceptionType={}",
+                    generationId,
+                    exception.getClass().getSimpleName());
             throw new AiServiceException(VISION_UNAVAILABLE_MESSAGE, exception);
         }
 
-        return parseResponse(responseBody);
+        try {
+            return parseResponse(responseBody);
+        } catch (AiServiceException exception) {
+            LOGGER.error(
+                    "Qwen response validation failed: generationId={}, reason={}",
+                    generationId,
+                    exception.getMessage());
+            throw exception;
+        }
     }
 
     private void validateInput(AiCopywritingInput input) {
@@ -153,6 +186,8 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
 
     private String createUserPrompt(AiCopywritingInput input) {
         StringBuilder prompt = new StringBuilder(USER_PROMPT);
+        prompt.append("\n文案风格要求：")
+                .append(styleInstruction(input.style()));
         if (input.hasUrlText()) {
             prompt.append("\n以下是从网页提取的参考信息：");
             if (input.urlTitle() != null && !input.urlTitle().isBlank()) {
@@ -163,6 +198,16 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
             }
         }
         return prompt.toString();
+    }
+
+    private String styleInstruction(String style) {
+        return switch (CopywritingStyles.normalize(style)) {
+            case "recommend" -> "种草推荐。强调核心卖点、真实使用体验和推荐理由，表达有感染力但不过度夸张。";
+            case "review" -> "专业测评。关注可观察的特点、优缺点与客观分析，结论清晰，不虚构参数。";
+            case "healing" -> "情绪治愈。语气温柔、有共鸣，围绕画面传递舒缓且真诚的情绪。";
+            case "minimal" -> "高级简约。语言克制精炼，减少修饰和感叹，突出画面质感与留白。";
+            default -> "日常分享。语气自然亲切，像真实记录生活一样轻松、有细节。";
+        };
     }
 
     private AiCopywritingResult parseResponse(String responseBody) {
