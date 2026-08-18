@@ -23,6 +23,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +32,8 @@ import com.example.xhscopywriting.dto.DownloadedImage;
 import com.example.xhscopywriting.exception.UrlContentException;
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
+import com.example.xhscopywriting.repository.UserRepository;
+import com.example.xhscopywriting.security.JwtTokenProvider;
 import com.example.xhscopywriting.service.UrlContentService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +42,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
         "app.upload-dir=target/test-url-uploads",
-        "ai.provider=mock"
+        "ai.provider=mock",
+        "security.jwt.secret=test-jwt-secret-with-at-least-32-characters"
 })
 class GenerationUrlProcessingTests {
 
@@ -62,6 +66,12 @@ class GenerationUrlProcessingTests {
 
     @Autowired
     private GenerationRepository generationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     @MockBean
     private UrlContentService urlContentService;
@@ -170,8 +180,12 @@ class GenerationUrlProcessingTests {
     }
 
     private Long createGeneration(String url) throws Exception {
+        TestAuthentication.Identity identity = TestAuthentication.createUser(
+                userRepository,
+                jwtTokenProvider);
         String body = url == null ? "{}" : "{\"url\":\"" + url + "\"}";
         String response = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())

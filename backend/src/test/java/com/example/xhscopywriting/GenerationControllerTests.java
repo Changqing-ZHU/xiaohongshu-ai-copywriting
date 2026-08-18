@@ -15,17 +15,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
+import com.example.xhscopywriting.repository.UserRepository;
+import com.example.xhscopywriting.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestPropertySource(properties = "security.jwt.secret=test-jwt-secret-with-at-least-32-characters")
 class GenerationControllerTests {
 
     @Autowired
@@ -37,9 +42,17 @@ class GenerationControllerTests {
     @Autowired
     private GenerationRepository generationRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @Test
     void createsProcessingGenerationAndPersistsIt() throws Exception {
+        TestAuthentication.Identity identity = authenticatedUser();
         String responseBody = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isCreated())
@@ -56,6 +69,7 @@ class GenerationControllerTests {
 
         assertTrue(savedGeneration.isPresent());
         Generation generation = savedGeneration.orElseThrow();
+        assertEquals(identity.user().getId(), generation.getUserId());
         assertEquals("PROCESSING", generation.getStatus());
         assertNotNull(generation.getCreatedAt());
         assertEquals(generation.getCreatedAt(), generation.getUpdatedAt());
@@ -69,7 +83,9 @@ class GenerationControllerTests {
 
     @Test
     void persistsOptionalSourceUrlWhenCreatingGeneration() throws Exception {
+        TestAuthentication.Identity identity = authenticatedUser();
         String responseBody = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"url\":\"https://example.com/article\"}"))
                 .andExpect(status().isCreated())
@@ -85,11 +101,17 @@ class GenerationControllerTests {
 
     @Test
     void acceptsOptionalCopywritingStyleWhenCreatingGeneration() throws Exception {
+        TestAuthentication.Identity identity = authenticatedUser();
         mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"style\":\"healing\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.status").value("PROCESSING"));
+    }
+
+    private TestAuthentication.Identity authenticatedUser() {
+        return TestAuthentication.createUser(userRepository, jwtTokenProvider);
     }
 }

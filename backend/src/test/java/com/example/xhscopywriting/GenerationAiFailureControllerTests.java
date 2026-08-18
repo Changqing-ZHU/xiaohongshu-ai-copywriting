@@ -31,6 +31,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,12 +40,17 @@ import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
+import com.example.xhscopywriting.repository.UserRepository;
+import com.example.xhscopywriting.security.JwtTokenProvider;
 import com.example.xhscopywriting.service.AiCopywritingService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = "app.upload-dir=target/test-ai-failure-uploads")
+@TestPropertySource(properties = {
+        "app.upload-dir=target/test-ai-failure-uploads",
+        "security.jwt.secret=test-jwt-secret-with-at-least-32-characters"
+})
 class GenerationAiFailureControllerTests {
 
     private static final String SAFE_ERROR_MESSAGE =
@@ -60,6 +66,12 @@ class GenerationAiFailureControllerTests {
 
     @Autowired
     private GenerationRepository generationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     @MockBean
     private AiCopywritingService aiCopywritingService;
@@ -120,6 +132,9 @@ class GenerationAiFailureControllerTests {
 
     @Test
     void passesSelectedStyleFromCreateRequestToAiService() throws Exception {
+        TestAuthentication.Identity identity = TestAuthentication.createUser(
+                userRepository,
+                jwtTokenProvider);
         when(aiCopywritingService.generate(anyLong(), any(AiCopywritingInput.class)))
                 .thenReturn(new AiCopywritingResult(
                         "图片内容分析",
@@ -127,6 +142,7 @@ class GenerationAiFailureControllerTests {
                         "治愈风格正文",
                         List.of("治愈", "生活", "日常")));
         String createResponse = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"style\":\"healing\"}"))
                 .andExpect(status().isCreated())

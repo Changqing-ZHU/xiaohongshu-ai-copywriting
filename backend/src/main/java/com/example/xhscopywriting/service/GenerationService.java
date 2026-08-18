@@ -65,11 +65,13 @@ public class GenerationService {
     }
 
     @Transactional
-    public Generation createGeneration(GenerationCreateRequest request) {
+    public Generation createGeneration(GenerationCreateRequest request, Long userId) {
         Objects.requireNonNull(request, "Generation create request must not be null");
+        Objects.requireNonNull(userId, "Authenticated user id must not be null");
 
         LocalDateTime now = LocalDateTime.now().withNano(0);
         Generation generation = new Generation();
+        generation.setUserId(userId);
         generation.setStatus(INITIAL_STATUS);
         generation.setSourceUrl(normalizeUrl(request.url()));
         generation.setCreatedAt(now);
@@ -93,6 +95,11 @@ public class GenerationService {
     @Transactional(readOnly = true)
     public List<Generation> findAll() {
         return generationRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Generation> findAllByUserId(Long userId) {
+        return generationRepository.findAllByUserId(userId);
     }
 
     @Transactional(readOnly = true)

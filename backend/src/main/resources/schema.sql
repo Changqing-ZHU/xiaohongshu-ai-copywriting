@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS generations (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NULL,
     status VARCHAR(20) NOT NULL,
     source_url VARCHAR(2048) NULL,
     url_title VARCHAR(500) NULL,
@@ -69,3 +70,58 @@ SET @url_description_ddl = IF(
 PREPARE url_description_statement FROM @url_description_ddl;
 EXECUTE url_description_statement;
 DEALLOCATE PREPARE url_description_statement;
+
+SET @user_id_exists = (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'generations' AND column_name = 'user_id'
+);
+SET @user_id_ddl = IF(
+    @user_id_exists = 0,
+    'ALTER TABLE generations ADD COLUMN user_id BIGINT NULL AFTER id',
+    'SELECT 1'
+);
+PREPARE user_id_statement FROM @user_id_ddl;
+EXECUTE user_id_statement;
+DEALLOCATE PREPARE user_id_statement;
+
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_users_username UNIQUE (username),
+    CONSTRAINT chk_users_role CHECK (role IN ('USER', 'ADMIN'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @generation_user_index_exists = (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'generations'
+      AND index_name = 'idx_generations_user_created'
+);
+SET @generation_user_index_ddl = IF(
+    @generation_user_index_exists = 0,
+    'ALTER TABLE generations ADD INDEX idx_generations_user_created (user_id, created_at)',
+    'SELECT 1'
+);
+PREPARE generation_user_index_statement FROM @generation_user_index_ddl;
+EXECUTE generation_user_index_statement;
+DEALLOCATE PREPARE generation_user_index_statement;
+
+SET @generation_user_fk_exists = (
+    SELECT COUNT(*) FROM information_schema.table_constraints
+    WHERE constraint_schema = DATABASE()
+      AND table_name = 'generations'
+      AND constraint_name = 'fk_generations_user'
+      AND constraint_type = 'FOREIGN KEY'
+);
+SET @generation_user_fk_ddl = IF(
+    @generation_user_fk_exists = 0,
+    'ALTER TABLE generations ADD CONSTRAINT fk_generations_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL',
+    'SELECT 1'
+);
+PREPARE generation_user_fk_statement FROM @generation_user_fk_ddl;
+EXECUTE generation_user_fk_statement;
+DEALLOCATE PREPARE generation_user_fk_statement;

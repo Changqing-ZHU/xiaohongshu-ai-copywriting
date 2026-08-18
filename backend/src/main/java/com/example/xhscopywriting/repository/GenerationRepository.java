@@ -21,6 +21,7 @@ public class GenerationRepository {
 
     private static final String INSERT_SQL = """
             INSERT INTO generations (
+                user_id,
                 status,
                 source_url,
                 url_title,
@@ -37,12 +38,13 @@ public class GenerationRepository {
                 error_message,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String FIND_BY_ID_SQL = """
             SELECT
                 id,
+                user_id,
                 status,
                 source_url,
                 url_title,
@@ -66,6 +68,7 @@ public class GenerationRepository {
     private static final String FIND_ALL_SQL = """
             SELECT
                 id,
+                user_id,
                 status,
                 source_url,
                 url_title,
@@ -86,9 +89,35 @@ public class GenerationRepository {
             ORDER BY created_at DESC, id DESC
             """;
 
+    private static final String FIND_ALL_BY_USER_ID_SQL = """
+            SELECT
+                id,
+                user_id,
+                status,
+                source_url,
+                url_title,
+                url_description,
+                original_file_name,
+                stored_file_name,
+                image_path,
+                image_content_type,
+                image_size,
+                image_analysis,
+                title,
+                content,
+                tags,
+                error_message,
+                created_at,
+                updated_at
+            FROM generations
+            WHERE user_id = ?
+            ORDER BY created_at DESC, id DESC
+            """;
+
     private static final RowMapper<Generation> GENERATION_ROW_MAPPER = (resultSet, rowNumber) -> {
         Generation generation = new Generation();
         generation.setId(resultSet.getLong("id"));
+        generation.setUserId(resultSet.getObject("user_id", Long.class));
         generation.setStatus(resultSet.getString("status"));
         generation.setSourceUrl(resultSet.getString("source_url"));
         generation.setUrlTitle(resultSet.getString("url_title"));
@@ -160,22 +189,23 @@ public class GenerationRepository {
             PreparedStatement statement = connection.prepareStatement(
                     INSERT_SQL,
                     Statement.RETURN_GENERATED_KEYS);
-            statement.setString(1, generation.getStatus());
-            statement.setString(2, generation.getSourceUrl());
-            statement.setString(3, generation.getUrlTitle());
-            statement.setString(4, generation.getUrlDescription());
-            statement.setString(5, generation.getOriginalFileName());
-            statement.setString(6, generation.getStoredFileName());
-            statement.setString(7, generation.getImagePath());
-            statement.setString(8, generation.getImageContentType());
-            statement.setObject(9, generation.getImageSize(), Types.BIGINT);
-            statement.setString(10, generation.getImageAnalysis());
-            statement.setString(11, generation.getTitle());
-            statement.setString(12, generation.getContent());
-            statement.setString(13, generation.getTags());
-            statement.setString(14, generation.getErrorMessage());
-            statement.setTimestamp(15, Timestamp.valueOf(generation.getCreatedAt()));
-            statement.setTimestamp(16, Timestamp.valueOf(generation.getUpdatedAt()));
+            statement.setObject(1, generation.getUserId(), Types.BIGINT);
+            statement.setString(2, generation.getStatus());
+            statement.setString(3, generation.getSourceUrl());
+            statement.setString(4, generation.getUrlTitle());
+            statement.setString(5, generation.getUrlDescription());
+            statement.setString(6, generation.getOriginalFileName());
+            statement.setString(7, generation.getStoredFileName());
+            statement.setString(8, generation.getImagePath());
+            statement.setString(9, generation.getImageContentType());
+            statement.setObject(10, generation.getImageSize(), Types.BIGINT);
+            statement.setString(11, generation.getImageAnalysis());
+            statement.setString(12, generation.getTitle());
+            statement.setString(13, generation.getContent());
+            statement.setString(14, generation.getTags());
+            statement.setString(15, generation.getErrorMessage());
+            statement.setTimestamp(16, Timestamp.valueOf(generation.getCreatedAt()));
+            statement.setTimestamp(17, Timestamp.valueOf(generation.getUpdatedAt()));
             return statement;
         }, keyHolder);
 
@@ -197,6 +227,10 @@ public class GenerationRepository {
 
     public List<Generation> findAll() {
         return jdbcTemplate.query(FIND_ALL_SQL, GENERATION_ROW_MAPPER);
+    }
+
+    public List<Generation> findAllByUserId(Long userId) {
+        return jdbcTemplate.query(FIND_ALL_BY_USER_ID_SQL, GENERATION_ROW_MAPPER, userId);
     }
 
     public int updateUrlContent(

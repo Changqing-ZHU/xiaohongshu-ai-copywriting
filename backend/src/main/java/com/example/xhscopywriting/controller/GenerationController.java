@@ -6,11 +6,13 @@ import java.util.List;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,6 +25,8 @@ import com.example.xhscopywriting.dto.GenerationImageUploadedResponse;
 import com.example.xhscopywriting.dto.GenerationProcessingResponse;
 import com.example.xhscopywriting.dto.GenerationResponse;
 import com.example.xhscopywriting.model.Generation;
+import com.example.xhscopywriting.model.User;
+import com.example.xhscopywriting.security.CurrentUserService;
 import com.example.xhscopywriting.service.GenerationAsyncService;
 import com.example.xhscopywriting.service.GenerationImageResourceService;
 import com.example.xhscopywriting.service.GenerationService;
@@ -34,14 +38,17 @@ public class GenerationController {
     private final GenerationService generationService;
     private final GenerationAsyncService generationAsyncService;
     private final GenerationImageResourceService generationImageResourceService;
+    private final CurrentUserService currentUserService;
 
     public GenerationController(
             GenerationService generationService,
             GenerationAsyncService generationAsyncService,
-            GenerationImageResourceService generationImageResourceService) {
+            GenerationImageResourceService generationImageResourceService,
+            CurrentUserService currentUserService) {
         this.generationService = generationService;
         this.generationAsyncService = generationAsyncService;
         this.generationImageResourceService = generationImageResourceService;
+        this.currentUserService = currentUserService;
     }
 
     @PostMapping("/{id}/generate")
@@ -56,11 +63,16 @@ public class GenerationController {
 
     @PostMapping
     public ResponseEntity<GenerationCreatedResponse> createGeneration(
-            @RequestBody(required = false) GenerationCreateRequest request) {
+            @RequestBody(required = false) GenerationCreateRequest request,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
+            String authorizationHeader) {
+        User currentUser = currentUserService.requireUser(authorizationHeader);
         GenerationCreateRequest effectiveRequest = request == null
                 ? new GenerationCreateRequest()
                 : request;
-        Generation generation = generationService.createGeneration(effectiveRequest);
+        Generation generation = generationService.createGeneration(
+                effectiveRequest,
+                currentUser.getId());
         GenerationCreatedResponse response = new GenerationCreatedResponse(
                 generation.getId(),
                 generation.getStatus(),
@@ -78,8 +90,12 @@ public class GenerationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GenerationHistoryResponse>> findAllGenerations() {
-        List<GenerationHistoryResponse> response = generationService.findAll()
+    public ResponseEntity<List<GenerationHistoryResponse>> findAllGenerations(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
+            String authorizationHeader) {
+        User currentUser = currentUserService.requireUser(authorizationHeader);
+        List<GenerationHistoryResponse> response = generationService
+                .findAllByUserId(currentUser.getId())
                 .stream()
                 .map(GenerationHistoryResponse::from)
                 .toList();

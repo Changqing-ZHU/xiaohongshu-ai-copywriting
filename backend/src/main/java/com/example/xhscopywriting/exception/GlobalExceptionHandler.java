@@ -18,6 +18,36 @@ public class GlobalExceptionHandler {
     private static final String IMAGE_SIZE_LIMIT_MESSAGE =
             "Image size exceeds limit. Please upload an image smaller than 10MB.";
 
+    @ExceptionHandler(AuthenticationRequiredException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthenticationRequiredException(
+            AuthenticationRequiredException exception) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidAuthInputException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidAuthInputException(
+            InvalidAuthInputException exception) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserAlreadyExistsException(
+            UserAlreadyExistsException exception) {
+        return error(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCredentialsException(
+            InvalidCredentialsException exception) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
+    @ExceptionHandler(JwtConfigurationException.class)
+    public ResponseEntity<ApiErrorResponse> handleJwtConfigurationException(
+            JwtConfigurationException exception) {
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Authentication service is not configured");
+    }
+
     @ExceptionHandler(InvalidGenerationInputException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidGenerationInputException(
             InvalidGenerationInputException exception) {
@@ -101,5 +131,11 @@ public class GlobalExceptionHandler {
                 "Unable to generate copywriting",
                 LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(new ApiErrorResponse(
+                message,
+                LocalDateTime.now()));
     }
 }

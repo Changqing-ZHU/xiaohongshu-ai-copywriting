@@ -26,12 +26,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
+import com.example.xhscopywriting.repository.UserRepository;
+import com.example.xhscopywriting.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -40,7 +43,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Transactional
 @TestPropertySource(properties = {
         "app.upload-dir=target/test-uploads",
-        "ai.provider=mock"
+        "ai.provider=mock",
+        "security.jwt.secret=test-jwt-secret-with-at-least-32-characters"
 })
 class GenerationImageUploadControllerTests {
 
@@ -59,6 +63,12 @@ class GenerationImageUploadControllerTests {
 
     @Autowired
     private MultipartProperties multipartProperties;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     @AfterEach
     void deleteUploadedTestFiles() throws IOException {
@@ -188,7 +198,11 @@ class GenerationImageUploadControllerTests {
 
     @Test
     void createsTaskUploadsImageAndReturnsMockResultFromQueryApi() throws Exception {
+        TestAuthentication.Identity identity = TestAuthentication.createUser(
+                userRepository,
+                jwtTokenProvider);
         String creationResponse = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isCreated())
