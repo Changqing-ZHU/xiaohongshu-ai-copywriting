@@ -1,0 +1,5 @@
+-- Generate a BCrypt hash for the administrator password outside MySQL.
+-- Replace both placeholders before executing this statement manually.
+-- Never place the administrator's plaintext password in this file.
+INSERT INTO users (username, password, role, created_at)
+VALUES ('__ADMIN_USERNAME__', '__BCRYPT_PASSWORD_HASH__', 'ADMIN', NOW());

@@ -6,6 +6,7 @@ import type {
   GenerationProcessingResponse,
   GenerationResponse,
 } from '../types/generation'
+import { getToken } from '../stores/authStore'
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() ?? ''
 const apiBaseUrl = configuredBaseUrl.replace(/\/$/, '')
@@ -36,7 +37,10 @@ export class ApiRequestError extends Error {
 const request = async <T>(path: string, options: RequestInit): Promise<T> => {
   let response: Response
   try {
-    response = await fetch(`${apiBaseUrl}${path}`, options)
+    const headers = new Headers(options.headers)
+    const token = getToken()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     throw new ApiRequestError('网络连接失败，请检查网络或后端服务后重试。', 'NETWORK')

@@ -3,6 +3,7 @@ package com.example.xhscopywriting.security;
 import org.springframework.stereotype.Service;
 
 import com.example.xhscopywriting.exception.AuthenticationRequiredException;
+import com.example.xhscopywriting.exception.AdminAccessDeniedException;
 import com.example.xhscopywriting.model.User;
 import com.example.xhscopywriting.repository.UserRepository;
 
@@ -34,5 +35,13 @@ public class CurrentUserService {
         } catch (IllegalArgumentException exception) {
             throw new AuthenticationRequiredException();
         }
+    }
+
+    public User requireAdmin(String authorizationHeader) {
+        User user = requireUser(authorizationHeader);
+        if (!"ADMIN".equals(user.getRole())) {
+            throw new AdminAccessDeniedException();
+        }
+        return user;
     }
 }

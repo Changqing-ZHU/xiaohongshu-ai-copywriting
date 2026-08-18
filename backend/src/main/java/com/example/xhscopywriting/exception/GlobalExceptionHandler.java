@@ -24,6 +24,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
     }
 
+    @ExceptionHandler(AdminAccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAdminAccessDeniedException(
+            AdminAccessDeniedException exception) {
+        return error(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
     @ExceptionHandler(InvalidAuthInputException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidAuthInputException(
             InvalidAuthInputException exception) {

@@ -15,10 +15,17 @@ final class TestAuthentication {
     static Identity createUser(
             UserRepository userRepository,
             JwtTokenProvider jwtTokenProvider) {
+        return createUser(userRepository, jwtTokenProvider, "USER");
+    }
+
+    static Identity createUser(
+            UserRepository userRepository,
+            JwtTokenProvider jwtTokenProvider,
+            String role) {
         User user = new User();
         user.setUsername("gen-" + UUID.randomUUID());
         user.setPassword("test-password-not-used-for-direct-test-fixture");
-        user.setRole("USER");
+        user.setRole(role);
         user.setCreatedAt(LocalDateTime.now().withNano(0));
         userRepository.insert(user);
         String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole());

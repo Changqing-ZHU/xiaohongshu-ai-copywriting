@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Navbar from './components/Navbar.vue'
+import AdminView from './views/AdminView.vue'
+import AdminGenerationsView from './views/AdminGenerationsView.vue'
+import AdminUsersView from './views/AdminUsersView.vue'
 import HomeView from './views/HomeView.vue'
 import HistoryView from './views/HistoryView.vue'
 import LandingView from './views/LandingView.vue'
+import Login from './views/Login.vue'
+import Register from './views/Register.vue'
 import ResultView from './views/ResultView.vue'
+import { logout as logoutRequest } from './services/authApi'
+import {
+  authUsername,
+  authRole,
+  clearAuthSession,
+  isAuthenticated,
+} from './stores/authStore'
 import {
   ApiRequestError,
   createGeneration,
@@ -31,22 +43,39 @@ const classifyFailure = (message: string | null) => {
   return 'AI' as const
 }
 
-const currentPath = ref(window.location.pathname)
+const protectedPaths = new Set(['/workbench', '/history', '/result'])
+const guardPath = (path: string) => {
+  const isAdminPath = path === '/admin' || path.startsWith('/admin/')
+  if ((protectedPaths.has(path) || isAdminPath) && !isAuthenticated.value) return '/login'
+  if (isAdminPath && authRole.value !== 'ADMIN') return '/workbench'
+  return path
+}
+const initialPath = guardPath(window.location.pathname)
+if (initialPath !== window.location.pathname) {
+  window.history.replaceState({}, '', initialPath)
+}
+
+const currentPath = ref(initialPath)
 const generatedDraft = ref<GeneratedDraft | null>(null)
 const resultReturnPath = ref('/workbench')
 let activeController: AbortController | null = null
 let activeOperation = 0
 
 const syncPath = () => {
-  currentPath.value = window.location.pathname
+  const guardedPath = guardPath(window.location.pathname)
+  if (guardedPath !== window.location.pathname) {
+    window.history.replaceState({}, '', guardedPath)
+  }
+  currentPath.value = guardedPath
   if (currentPath.value !== '/result') activeController?.abort()
 }
 
 const navigate = (path: string) => {
-  if (window.location.pathname !== path) {
-    window.history.pushState({}, '', path)
+  const guardedPath = guardPath(path)
+  if (window.location.pathname !== guardedPath) {
+    window.history.pushState({}, '', guardedPath)
   }
-  currentPath.value = path
+  currentPath.value = guardedPath
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -204,6 +233,20 @@ const handleNavigation = (path: string) => {
 
 const leaveResult = () => handleNavigation(resultReturnPath.value)
 
+const handleAuthenticated = () => handleNavigation('/workbench')
+const handleRegistered = () => handleNavigation('/login')
+
+const handleLogout = async () => {
+  try {
+    await logoutRequest()
+  } catch {
+    // Stateless logout is completed locally even if the acknowledgement fails.
+  } finally {
+    clearAuthSession()
+    handleNavigation('/login')
+  }
+}
+
 onMounted(() => window.addEventListener('popstate', syncPath))
 onBeforeUnmount(() => {
   activeController?.abort()
@@ -213,7 +256,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-shell">
-    <Navbar :active-path="currentPath" @navigate="handleNavigation" />
+    <Navbar
+      :active-path="currentPath"
+      :authenticated="isAuthenticated"
+      :username="authUsername"
+      :role="authRole"
+      @navigate="handleNavigation"
+      @logout="handleLogout"
+    />
     <main>
       <ResultView
         v-if="currentPath === '/result'"
@@ -225,7 +275,20 @@ onBeforeUnmount(() => {
         v-else-if="currentPath === '/history'"
         @select="openHistoryRecord"
       />
+      <AdminView v-else-if="currentPath === '/admin'" @navigate="handleNavigation" />
+      <AdminUsersView v-else-if="currentPath === '/admin/users'" @navigate="handleNavigation" />
+      <AdminGenerationsView v-else-if="currentPath === '/admin/generations'" @navigate="handleNavigation" />
       <HomeView v-else-if="currentPath === '/workbench'" @generate="startGeneration" />
+      <Login
+        v-else-if="currentPath === '/login'"
+        @authenticated="handleAuthenticated"
+        @navigate="handleNavigation"
+      />
+      <Register
+        v-else-if="currentPath === '/register'"
+        @registered="handleRegistered"
+        @navigate="handleNavigation"
+      />
       <LandingView v-else @start="handleNavigation('/workbench')" />
     </main>
   </div>

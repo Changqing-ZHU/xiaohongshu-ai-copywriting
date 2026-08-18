@@ -1,8 +1,14 @@
 <script setup lang="ts">
-defineProps<{ activePath: string }>()
+defineProps<{
+  activePath: string
+  authenticated: boolean
+  username: string
+  role: string
+}>()
 
 const emit = defineEmits<{
   navigate: [path: string]
+  logout: []
 }>()
 </script>
 
@@ -14,24 +20,46 @@ const emit = defineEmits<{
         <span>红薯灵感</span>
       </a>
       <nav aria-label="主要导航">
-        <a href="/" :class="{ active: activePath === '/' }" @click.prevent="emit('navigate', '/')">
+        <a class="home-link" href="/" :class="{ active: activePath === '/' }" @click.prevent="emit('navigate', '/')">
           首页
         </a>
-        <a
-          href="/workbench"
-          :class="{ active: activePath === '/workbench' || activePath === '/result' }"
-          @click.prevent="emit('navigate', '/workbench')"
-        >
-          文案生成
-        </a>
-        <a
-          href="/history"
-          :class="{ active: activePath === '/history' }"
-          @click.prevent="emit('navigate', '/history')"
-        >
-          历史记录
-        </a>
-        <span class="stage-badge">AI 生成</span>
+        <template v-if="authenticated">
+          <a
+            href="/workbench"
+            :class="{ active: activePath === '/workbench' || activePath === '/result' }"
+            @click.prevent="emit('navigate', '/workbench')"
+          >
+            文案生成
+          </a>
+          <a
+            href="/history"
+            :class="{ active: activePath === '/history' }"
+            @click.prevent="emit('navigate', '/history')"
+          >
+            历史记录
+          </a>
+          <a
+            v-if="role === 'ADMIN'"
+            href="/admin"
+            :class="{ active: activePath === '/admin' || activePath.startsWith('/admin/') }"
+            @click.prevent="emit('navigate', '/admin')"
+          >
+            后台管理
+          </a>
+          <span class="user-chip" :title="username">
+            <span class="user-avatar">{{ username.slice(0, 1).toUpperCase() }}</span>
+            <span class="user-name">{{ username }}</span>
+          </span>
+          <button class="logout-button" type="button" @click="emit('logout')">退出</button>
+        </template>
+        <template v-else>
+          <a href="/login" :class="{ active: activePath === '/login' }" @click.prevent="emit('navigate', '/login')">
+            登录
+          </a>
+          <a class="register-link" href="/register" @click.prevent="emit('navigate', '/register')">
+            注册
+          </a>
+        </template>
       </nav>
     </div>
   </header>
@@ -93,20 +121,44 @@ nav a.active::after {
   border-radius: 999px;
   background: var(--red);
 }
-.stage-badge {
-  padding: 6px 10px;
+.register-link,
+.logout-button {
+  padding: 8px 13px;
+  border: 0;
   border-radius: 999px;
-  color: #9a666f;
+  cursor: pointer;
   font-size: 12px;
-  background: #ffe8e9;
+  font-weight: 700;
+}
+.register-link {
+  color: #fff;
+  background: linear-gradient(135deg, var(--red), #ff596f);
+}
+.user-chip { max-width: 150px; padding: 5px 9px 5px 5px; display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; color: var(--ink); font-size: 12px; font-weight: 700; background: #fff0f1; }
+.user-avatar { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; font-size: 10px; background: var(--red); }
+.user-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.logout-button {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.logout-button:hover { color: var(--red); border-color: #ffc2ca; }
+.register-link::after { display: none; }
+.register-link:hover { box-shadow: 0 7px 16px rgba(255, 36, 66, .18); }
+button:focus-visible { outline: 3px solid rgba(255, 36, 66, .2); outline-offset: 2px; }
+@media (max-width: 850px) {
+  nav { gap: 13px; }
+  .brand > span:last-child { display: none; }
 }
 @media (max-width: 700px) {
   .navbar-inner { width: calc(100% - 24px); height: 64px; }
-  .stage-badge { display: none; }
+  .user-chip { max-width: 82px; }
 }
 @media (max-width: 460px) {
-  .brand > span:last-child { display: none; }
-  nav { gap: 14px; }
+  .home-link { display: none; }
+  nav { gap: 10px; }
   nav a { font-size: 13px; }
+  .user-chip { max-width: 62px; }
+  .logout-button { padding-right: 9px; padding-left: 9px; }
 }
 </style>
