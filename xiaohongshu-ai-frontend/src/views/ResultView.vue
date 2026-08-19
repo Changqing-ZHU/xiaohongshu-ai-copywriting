@@ -65,7 +65,9 @@ const description = computed(() => {
           <div v-else class="url-source-card">
             <span>图片 URL</span>
             <strong>{{ draft.sourceUrl }}</strong>
-            <small>系统正在下载图片并交给 AI 进行视觉分析</small>
+            <small v-if="draft.status === 'PROCESSING'">系统正在下载图片并交给 AI 进行视觉分析</small>
+            <small v-else-if="draft.status === 'COMPLETED'">图片已完成下载与视觉分析</small>
+            <small v-else>图片处理失败，请根据错误提示重试</small>
           </div>
           <section class="analysis-card">
             <div class="analysis-heading">

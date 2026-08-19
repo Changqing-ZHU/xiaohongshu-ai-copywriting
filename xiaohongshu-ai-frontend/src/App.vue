@@ -82,9 +82,15 @@ const navigate = (path: string) => {
 const updateFromResponse = (response: GenerationResponse, operation: number) => {
   if (operation !== activeOperation || !generatedDraft.value) return
 
+  const storedImageUrl = response.imageUrl
+    || (response.imagePath ? `/api/generations/${response.id}/image` : '')
+
   generatedDraft.value = {
     ...generatedDraft.value,
     generationId: response.id,
+    imageUrl: storedImageUrl
+      ? resolveApiUrl(storedImageUrl)
+      : generatedDraft.value.imageUrl,
     status: response.status,
     imageAnalysis: response.imageAnalysis,
     title: response.title,

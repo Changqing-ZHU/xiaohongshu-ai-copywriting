@@ -52,6 +52,8 @@ export interface GenerationProcessingResponse {
 export interface GenerationResponse {
   id: number
   status: GenerationStatus
+  imageUrl: string | null
+  imagePath?: string | null
   createdAt: string
   updatedAt: string
   imageAnalysis: string | null

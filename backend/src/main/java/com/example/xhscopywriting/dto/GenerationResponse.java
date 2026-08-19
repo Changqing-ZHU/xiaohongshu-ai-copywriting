@@ -9,6 +9,7 @@ import com.example.xhscopywriting.model.Generation;
 public record GenerationResponse(
         Long id,
         String status,
+        String imageUrl,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         String imageAnalysis,
@@ -18,9 +19,14 @@ public record GenerationResponse(
         String errorMessage) {
 
     public static GenerationResponse from(Generation generation) {
+        String imageUrl = generation.getImagePath() == null
+                || generation.getImagePath().isBlank()
+                ? null
+                : "/api/generations/" + generation.getId() + "/image";
         return new GenerationResponse(
                 generation.getId(),
                 generation.getStatus(),
+                imageUrl,
                 generation.getCreatedAt(),
                 generation.getUpdatedAt(),
                 generation.getImageAnalysis(),

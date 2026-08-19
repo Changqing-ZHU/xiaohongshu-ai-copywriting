@@ -84,11 +84,16 @@
 E:\AI-project
 ├── .env                              # 本地敏感配置，不提交 Git
 ├── .env.example                      # 环境变量示例
+├── docker-compose.yml                # MySQL、后端、前端一键编排
+├── docker\
+│   └── mysql\init\
+│       └── 02-default-admin.sql       # Docker 默认管理员 BCrypt 初始化数据
 ├── PROJECT_CONTEXT.md                # 项目背景与开发上下文
 ├── README.md
 ├── uploads\                          # 运行时图片存储目录
 ├── backend\
 │   ├── admin-user.sql.example        # 管理员初始化 SQL 模板
+│   ├── Dockerfile                    # Maven 构建与 JRE 运行镜像
 │   ├── pom.xml
 │   └── src\
 │       ├── main\
@@ -106,6 +111,8 @@ E:\AI-project
 │       │       └── schema.sql
 │       └── test\                     # 单元测试与集成测试
 └── xiaohongshu-ai-frontend\
+    ├── Dockerfile                    # Node 构建与 Nginx 运行镜像
+    ├── nginx.conf                    # SPA 与 /api 反向代理
     ├── package.json
     ├── vite.config.ts                # 开发环境 /api 代理
     └── src\
@@ -154,6 +161,7 @@ JWT_EXPIRATION_MS=3600000
 DB_URL=jdbc:mysql://localhost:3306/xiaohongshu_ai?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
 DB_USERNAME=root
 MYSQL_ROOT_PASSWORD=replace-with-your-local-password
+MYSQL_DATABASE=xiaohongshu_ai
 UPLOAD_DIR=uploads
 ```
 
@@ -162,6 +170,7 @@ UPLOAD_DIR=uploads
 | `DB_URL` | `xiaohongshu_ai` 业务数据库 JDBC 地址 |
 | `DB_USERNAME` | MySQL 用户名 |
 | `MYSQL_ROOT_PASSWORD` | Docker MySQL root 密码及后端连接密码 |
+| `MYSQL_DATABASE` | Compose 创建的业务数据库名称，默认 `xiaohongshu_ai` |
 | `UPLOAD_DIR` | 图片保存目录，可使用相对路径 `uploads` |
 | `JWT_SECRET` | JWT HMAC 签名密钥，至少 32 个字符 |
 | `JWT_EXPIRATION_MS` | JWT 有效期，默认 3600000 毫秒 |
@@ -238,6 +247,103 @@ http://localhost:5173
 
 Vite 会把 `/api` 请求代理到 `http://localhost:8080`。修改 `vite.config.ts` 后需要重启前端开发服务器。
 
+## Docker Compose 本地部署
+
+Docker Compose 可以一次启动 MySQL、Spring Boot 后端和 Nginx 前端。容器部署不要求宿主机安装 Java、Maven、Node.js 或 MySQL，只需要 Git 和 Docker Desktop。
+
+### 1. 获取项目
+
+```powershell
+git clone <your-repository-url> xiaohongshu-ai-copywriting
+cd xiaohongshu-ai-copywriting
+```
+
+如果已经位于当前项目目录，可以跳过这一步。
+
+### 2. 创建环境变量文件
+
+Windows PowerShell：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+macOS / Linux：
+
+```bash
+cp .env.example .env
+```
+
+至少检查并填写：
+
+- `MYSQL_ROOT_PASSWORD`：MySQL root 密码
+- `MYSQL_DATABASE`：业务数据库，建议保持 `xiaohongshu_ai`
+- `DB_USERNAME`：当前 Compose 默认使用 `root`
+- `JWT_SECRET`：至少 32 个字符的随机签名密钥
+- `JWT_EXPIRATION_MS`：JWT 有效期
+- `AI_PROVIDER=qwen`
+- `QWEN_API_KEY`：阿里云百炼 API Key
+- `QWEN_BASE_URL`：百炼 OpenAI 兼容接口地址
+- `QWEN_MODEL`：账号可用的 Qwen 视觉模型
+
+`.env` 中用于宿主机开发的 `DB_URL` 可以继续保留 `localhost`。Compose 会在后端容器中自动覆盖为内部地址 `mysql:3306`。
+
+### 3. 构建并启动
+
+```powershell
+docker compose up -d --build
+```
+
+也可以分开执行：
+
+```powershell
+docker compose build
+docker compose up -d
+```
+
+查看容器状态和日志：
+
+```powershell
+docker compose ps
+docker compose logs -f backend
+```
+
+启动完成后访问：
+
+```text
+http://localhost
+```
+
+Nginx 会把浏览器的 `/api` 请求转发到 Compose 内部的 `backend:8080`。后端通过服务名 `mysql` 访问 MySQL，因此不依赖宿主机的 8080 或 3306 端口。
+
+### 4. 数据初始化与持久化
+
+- MySQL 首次创建 `mysql_data` volume 时依次执行数据库结构 SQL 和默认管理员初始化 SQL。
+- Spring Boot 启动时也会幂等检查数据库结构。
+- MySQL 数据保存在 `mysql_data` volume。
+- 上传图片保存在 `uploads_data` volume。
+- 普通的 `docker compose down` 不会删除上述数据。
+
+首次初始化完成后会自动创建本地部署管理员：
+
+| 配置 | 默认值 |
+| --- | --- |
+| 用户名 | `admin` |
+| 密码 | `admin123456` |
+| 角色 | `ADMIN` |
+
+初始化 SQL 只保存经过 Spring BCrypt（强度 12）生成的密码哈希，不会向数据库写入明文密码。普通用户仍通过注册页面创建，默认角色保持为 `USER`。
+
+默认账号仅用于本地部署和课程演示。正式使用前，应生成新的 BCrypt 哈希并在第一次启动前替换 `docker/mysql/init/02-default-admin.sql` 中的用户名和哈希。初始化脚本只在全新的 `mysql_data` volume 上自动执行；已有数据卷不会重复创建或覆盖管理员。
+
+### 5. 停止服务
+
+```powershell
+docker compose down
+```
+
+不要随意执行 `docker compose down -v`，该命令会删除 MySQL 和上传文件 volume 中的数据。
+
 ## 核心使用流程
 
 ### 本地图片生成
@@ -304,14 +410,9 @@ Vite 会把 `/api` 请求代理到 `http://localhost:8080`。修改 `vite.config
 | `GET /api/admin/users` | 查询用户列表 |
 | `GET /api/admin/generations` | 查询全部生成记录 |
 
-当前开发数据库已创建用户名为 `admin` 的管理员账号。管理员密码属于本地开发凭据，不写入 README 或源码。
+Docker Compose 首次初始化会创建 `admin` 管理员，默认密码为 `admin123456`。数据库中只保存 BCrypt 哈希。登录后 JWT 会包含 `ADMIN` 角色，前端随即显示后台管理入口。
 
-普通注册用户不能自行成为管理员。创建新的管理员时：
-
-1. 使用 Spring `BCryptPasswordEncoder` 生成密码哈希。
-2. 复制并填写 `backend/admin-user.sql.example`。
-3. 手工向 `users` 表插入 `role=ADMIN` 的记录。
-4. 不要把明文密码写入 SQL 文件或 Git。
+普通注册接口始终创建 `USER` 角色，不能通过注册请求自行成为管理员。默认管理员仅适用于本地开发，公开或正式环境部署前必须更换默认凭据。
 
 ## 测试与构建
 

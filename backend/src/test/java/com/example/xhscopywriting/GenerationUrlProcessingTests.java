@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -106,6 +107,12 @@ class GenerationUrlProcessingTests {
         assertNotNull(completed.getImagePath());
         assertTrue(Files.exists(Path.of(completed.getImagePath())));
         assertNotNull(completed.getTitle());
+
+        mockMvc.perform(get("/api/generations/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.imageUrl")
+                        .value("/api/generations/" + id + "/image"));
     }
 
     @Test
