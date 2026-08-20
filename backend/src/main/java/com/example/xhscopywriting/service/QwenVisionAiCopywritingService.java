@@ -21,6 +21,7 @@ import com.example.xhscopywriting.dto.AiCopywritingOptimizationInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
 import com.example.xhscopywriting.dto.CopywritingStyles;
+import com.example.xhscopywriting.dto.CopywritingOptions;
 import com.example.xhscopywriting.exception.AiServiceException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -248,9 +249,33 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
     }
 
     private String createUserPrompt(AiCopywritingInput input) {
+        CopywritingOptions options = input.options() == null
+                ? CopywritingOptions.defaults()
+                : input.options().normalized();
         StringBuilder prompt = new StringBuilder(USER_PROMPT);
+        prompt.append("\n以下创作参数都是必须执行的硬性要求。文案风格决定整体语气和结构，"
+                + "不得用通用小红书模板弱化所选风格；最终标题和正文应让读者能明显辨认该风格。");
+        prompt.append("\n所选参数：style=").append(options.style())
+                .append(", scene=").append(options.scene())
+                .append(", audience=").append(options.audience())
+                .append(", ageGroup=").append(options.ageGroup())
+                .append(", marketingLevel=").append(options.marketingLevel())
+                .append(", length=").append(options.length())
+                .append(", emojiPreference=").append(options.emojiPreference());
         prompt.append("\n文案风格要求：")
-                .append(styleInstruction(input.style()));
+                .append(styleInstruction(options.style()));
+        prompt.append("\n内容类型要求：")
+                .append(contentTypeInstruction(options.scene()));
+        prompt.append("\n目标受众要求：")
+                .append(targetAudienceInstruction(options.audience()));
+        prompt.append("\n年龄段要求：")
+                .append(ageGroupInstruction(options.ageGroup()));
+        prompt.append("\n推荐程度要求：")
+                .append(recommendationInstruction(options.marketingLevel()));
+        prompt.append("\n文案长度要求：")
+                .append(copyLengthInstruction(options.length()));
+        prompt.append("\nEmoji 使用要求：")
+                .append(emojiInstruction(options.emojiPreference()));
         if (input.hasUrlText()) {
             prompt.append("\n以下是从网页提取的参考信息：");
             if (input.urlTitle() != null && !input.urlTitle().isBlank()) {
@@ -283,11 +308,75 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
 
     private String styleInstruction(String style) {
         return switch (CopywritingStyles.normalize(style)) {
-            case "recommend" -> "种草推荐。强调核心卖点、真实使用体验和推荐理由，表达有感染力但不过度夸张。";
-            case "review" -> "专业测评。关注可观察的特点、优缺点与客观分析，结论清晰，不虚构参数。";
-            case "healing" -> "情绪治愈。语气温柔、有共鸣，围绕画面传递舒缓且真诚的情绪。";
-            case "minimal" -> "高级简约。语言克制精炼，减少修饰和感叹，突出画面质感与留白。";
-            default -> "日常分享。语气自然亲切，像真实记录生活一样轻松、有细节。";
+            case "recommend" -> "种草推荐：标题必须体现一个具体吸引点；正文按“使用场景—可观察亮点—适合谁—自然推荐理由”展开，语气热情有感染力。不得写成中性记录，也不得虚构功效。";
+            case "review" -> "专业测评：正文必须有清晰的测评结构，分别写可观察优点、可能不足、适合人群和客观结论；语气理性克制，避免感叹式种草，不虚构参数。";
+            case "healing" -> "情绪治愈：从画面的光线、色彩或氛围切入，多用温柔短句和情绪共鸣；弱化产品卖点与购买引导，不写测评清单。";
+            case "minimal" -> "高级简约：使用短句、低饱和词汇和留白感；正文控制段落简洁，少形容词、少感叹号、无网络热梗，不写强营销号召。";
+            case "viral" -> "爆款小红书风：标题采用强钩子或反差点；正文第一句立即抓住注意力，并用短段落、节奏变化和明确记忆点推进，结尾形成互动。不得使用虚假数字或夸张承诺。";
+            case "authentic" -> "真实体验分享：坚持第一人称，加入基于图片可确认的具体观察和自然感受；允许表达保留意见，避免绝对化结论、营销口号和模板化卖点罗列。";
+            case "tutorial" -> "干货攻略风：正文必须按步骤、要点或清单组织，至少给出三个基于素材可支持的实用提示，并包含避坑提醒；减少抒情，不虚构事实。";
+            default -> "日常分享：采用第一人称生活记录口吻，从一个具体画面细节切入；自然叙述当下感受，不列卖点、不做专业测评、不使用购买号召。";
+        };
+    }
+
+    private String contentTypeInstruction(String contentType) {
+        return switch (contentType) {
+            case "food" -> "美食探店，关注环境、菜品观感、体验亮点和实用探店信息。";
+            case "travel" -> "旅行打卡，突出地点氛围、旅途体验和可参考的打卡建议。";
+            case "outfit" -> "穿搭分享，关注搭配思路、风格氛围和适用场景。";
+            case "product_recommendation" -> "好物推荐，说明可观察的亮点、适用场景和推荐理由。";
+            case "product_review" -> "产品测评，兼顾优点、不足、使用感受和适合人群。";
+            case "beauty" -> "美妆护肤，关注妆效或使用感，避免虚构功效与不实承诺。";
+            case "home" -> "家居生活，突出空间氛围、实用细节和生活方式。";
+            case "digital" -> "数码科技，表达清楚、逻辑准确，关注功能体验但不虚构参数。";
+            case "learning" -> "学习成长，提炼方法、收获和可执行建议。";
+            default -> "日常记录，围绕图片中的真实场景自然分享生活细节。";
+        };
+    }
+
+    private String targetAudienceInstruction(String targetAudience) {
+        return switch (targetAudience) {
+            case "students" -> "面向学生党，表达轻松易懂，关注预算、校园场景和实用性。";
+            case "young_women" -> "面向年轻女性，表达自然有共鸣，关注审美、体验和生活方式。";
+            case "professionals" -> "面向职场人士，表达高效清晰，关注品质、效率和实际价值。";
+            case "mothers" -> "面向宝妈群体，表达亲切可靠，关注家庭场景、便利性与真实体验。";
+            case "couples" -> "面向情侣用户，适当突出共同体验、互动感和纪念意义。";
+            default -> "面向大众用户，避免小众黑话，表达清楚且易于理解。";
+        };
+    }
+
+    private String ageGroupInstruction(String ageGroup) {
+        return switch (ageGroup) {
+            case "under_18" -> "适合18岁以下读者，语言活泼健康，避免成人化消费引导。";
+            case "18_25" -> "适合18至25岁读者，语气年轻自然，贴近学习、初入职场和社交场景。";
+            case "25_35" -> "适合25至35岁读者，兼顾生活品质、实用价值与成熟表达。";
+            case "35_plus" -> "适合35岁以上读者，表达稳重清晰，强调品质、可靠性和长期价值。";
+            default -> "不限定年龄，使用普适、自然且容易理解的表达。";
+        };
+    }
+
+    private String recommendationInstruction(String recommendationLevel) {
+        return switch (recommendationLevel) {
+            case "share" -> "纯分享，不使用购买号召，不刻意突出销售价值。";
+            case "strong" -> "明显推荐，清楚表达推荐理由和适合人群，但不夸大。";
+            case "marketing" -> "强营销推广，强化卖点与行动引导，同时保持事实准确并避免虚假承诺。";
+            default -> "轻度种草，自然融入亮点与推荐理由，避免强烈广告感。";
+        };
+    }
+
+    private String copyLengthInstruction(String copyLength) {
+        return switch (copyLength) {
+            case "short" -> "简短版，正文控制在约100至180个中文字符，突出核心信息。";
+            case "detailed" -> "详细版，正文约500至800个中文字符，分段充分并包含更多实用细节。";
+            default -> "标准版，正文约250至450个中文字符，信息完整且阅读节奏自然。";
+        };
+    }
+
+    private String emojiInstruction(String emojiPreference) {
+        return switch (emojiPreference) {
+            case "none" -> "不使用 Emoji。";
+            case "rich" -> "丰富使用 Emoji，适度分布在标题、段落和要点中，但不要影响阅读。";
+            default -> "少量使用 Emoji，仅用于自然强调重点。";
         };
     }
 

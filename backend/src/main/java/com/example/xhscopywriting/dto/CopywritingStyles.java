@@ -11,7 +11,10 @@ public final class CopywritingStyles {
             "recommend",
             "review",
             "healing",
-            "minimal");
+            "minimal",
+            "viral",
+            "authentic",
+            "tutorial");
 
     private CopywritingStyles() {
     }

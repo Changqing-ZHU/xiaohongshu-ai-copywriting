@@ -5,14 +5,35 @@ public record AiCopywritingInput(
         AiImageInfo urlImage,
         String urlTitle,
         String urlDescription,
-        String style) {
+        CopywritingOptions options) {
 
     public AiCopywritingInput(
             AiImageInfo userImage,
             AiImageInfo urlImage,
             String urlTitle,
             String urlDescription) {
-        this(userImage, urlImage, urlTitle, urlDescription, CopywritingStyles.DEFAULT);
+        this(userImage, urlImage, urlTitle, urlDescription, CopywritingOptions.defaults());
+    }
+
+    public AiCopywritingInput(
+            AiImageInfo userImage,
+            AiImageInfo urlImage,
+            String urlTitle,
+            String urlDescription,
+            String style) {
+        this(
+                userImage,
+                urlImage,
+                urlTitle,
+                urlDescription,
+                new CopywritingOptions(
+                        style,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null).normalized());
     }
 
     public boolean hasImage() {

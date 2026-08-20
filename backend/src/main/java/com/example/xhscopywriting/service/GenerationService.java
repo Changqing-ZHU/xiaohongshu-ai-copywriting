@@ -2,9 +2,7 @@ package com.example.xhscopywriting.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +15,7 @@ import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingOptimizationInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
-import com.example.xhscopywriting.dto.CopywritingStyles;
+import com.example.xhscopywriting.dto.CopywritingOptions;
 import com.example.xhscopywriting.dto.DownloadedImage;
 import com.example.xhscopywriting.dto.GenerationCreateRequest;
 import com.example.xhscopywriting.dto.ImageStorageResult;
@@ -31,6 +29,8 @@ import com.example.xhscopywriting.exception.InvalidImageException;
 import com.example.xhscopywriting.exception.UrlContentException;
 import com.example.xhscopywriting.model.Generation;
 import com.example.xhscopywriting.repository.GenerationRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class GenerationService {
@@ -55,17 +55,19 @@ public class GenerationService {
     private final ImageStorageService imageStorageService;
     private final UrlContentService urlContentService;
     private final AiCopywritingService aiCopywritingService;
-    private final Map<Long, String> generationStyles = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;
 
     public GenerationService(
             GenerationRepository generationRepository,
             ImageStorageService imageStorageService,
             UrlContentService urlContentService,
-            AiCopywritingService aiCopywritingService) {
+            AiCopywritingService aiCopywritingService,
+            ObjectMapper objectMapper) {
         this.generationRepository = generationRepository;
         this.imageStorageService = imageStorageService;
         this.urlContentService = urlContentService;
         this.aiCopywritingService = aiCopywritingService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -78,12 +80,12 @@ public class GenerationService {
         generation.setUserId(userId);
         generation.setStatus(INITIAL_STATUS);
         generation.setSourceUrl(normalizeUrl(request.url()));
+        generation.setGenerationOptions(serializeOptions(CopywritingOptions.from(request)));
         generation.setCreatedAt(now);
         generation.setUpdatedAt(now);
 
         try {
             generationRepository.insert(generation);
-            generationStyles.put(generation.getId(), CopywritingStyles.normalize(request.style()));
             return generation;
         } catch (DataAccessException | IllegalStateException exception) {
             throw new GenerationCreationException("Failed to persist generation task", exception);
@@ -205,9 +207,7 @@ public class GenerationService {
                     preparedUrl == null ? null : preparedUrl.imageInfo(),
                     null,
                     null,
-                    generationStyles.getOrDefault(
-                            generation.getId(),
-                            CopywritingStyles.DEFAULT));
+                    deserializeOptions(generation.getGenerationOptions()));
 
             if (!aiInput.hasImage() && !aiInput.hasUrlText()) {
                 markFailedAndThrow(generation, SAFE_URL_ACCESS_FAILURE_MESSAGE, null);
@@ -249,7 +249,6 @@ public class GenerationService {
             generation.setUpdatedAt(completedAt);
             return generation;
         } finally {
-            generationStyles.remove(generation.getId());
             if (preparedUrl != null && preparedUrl.temporaryStoredImage() != null) {
                 imageStorageService.deleteStoredFile(preparedUrl.temporaryStoredImage());
             }
@@ -383,6 +382,7 @@ public class GenerationService {
         optimized.setSourceUrl(original.getSourceUrl());
         optimized.setUrlTitle(original.getUrlTitle());
         optimized.setUrlDescription(original.getUrlDescription());
+        optimized.setGenerationOptions(original.getGenerationOptions());
         optimized.setOriginalFileName(original.getOriginalFileName());
         optimized.setStoredFileName(original.getStoredFileName());
         optimized.setImagePath(original.getImagePath());
@@ -410,6 +410,30 @@ public class GenerationService {
                     "Optimization instruction must not exceed 500 characters.");
         }
         return normalized;
+    }
+
+    private String serializeOptions(CopywritingOptions options) {
+        try {
+            return objectMapper.writeValueAsString(options.normalized());
+        } catch (JsonProcessingException exception) {
+            throw new GenerationCreationException(
+                    "Failed to serialize generation options",
+                    exception);
+        }
+    }
+
+    private CopywritingOptions deserializeOptions(String storedOptions) {
+        if (storedOptions == null || storedOptions.isBlank()) {
+            return CopywritingOptions.defaults();
+        }
+        try {
+            return objectMapper
+                    .readValue(storedOptions, CopywritingOptions.class)
+                    .normalized();
+        } catch (JsonProcessingException exception) {
+            LOGGER.warn("Invalid stored generation options; using defaults");
+            return CopywritingOptions.defaults();
+        }
     }
 
     private String normalizeUrl(String url) {

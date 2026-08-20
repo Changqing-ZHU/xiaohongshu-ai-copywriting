@@ -98,6 +98,7 @@ class GenerationOptimizationControllerTests {
         assertNotEquals(original.getId(), optimized.getId());
         assertEquals(original.getUserId(), optimized.getUserId());
         assertEquals(original.getImagePath(), optimized.getImagePath());
+        assertEquals(original.getGenerationOptions(), optimized.getGenerationOptions());
         assertEquals("原始标题", unchangedOriginal.getTitle());
         assertEquals("原始正文", unchangedOriginal.getContent());
 
@@ -156,6 +157,11 @@ class GenerationOptimizationControllerTests {
         generation.setImageContentType(MediaType.IMAGE_JPEG_VALUE);
         generation.setImageSize(128L);
         generation.setImageAnalysis("原始图片分析");
+        generation.setGenerationOptions("""
+                {"style":"daily","contentType":"daily_record","targetAudience":"general",\
+                "ageGroup":"unrestricted","recommendationLevel":"light",\
+                "copyLength":"standard","emojiPreference":"few"}
+                """);
         generation.setTitle("原始标题");
         generation.setContent("原始正文");
         generation.setTags("原始标签,图片分享");

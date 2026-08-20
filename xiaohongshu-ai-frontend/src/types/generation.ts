@@ -1,5 +1,35 @@
 export type GenerationStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED'
-export type CopywritingStyle = 'daily' | 'recommend' | 'review' | 'healing' | 'minimal'
+export type CopywritingStyle =
+  | 'daily'
+  | 'recommend'
+  | 'review'
+  | 'healing'
+  | 'minimal'
+  | 'viral'
+  | 'authentic'
+  | 'tutorial'
+export type ContentType =
+  | 'daily_record'
+  | 'food'
+  | 'travel'
+  | 'outfit'
+  | 'product_recommendation'
+  | 'product_review'
+  | 'beauty'
+  | 'home'
+  | 'digital'
+  | 'learning'
+export type TargetAudience =
+  | 'students'
+  | 'young_women'
+  | 'professionals'
+  | 'mothers'
+  | 'couples'
+  | 'general'
+export type AgeGroup = 'under_18' | '18_25' | '25_35' | '35_plus' | 'unrestricted'
+export type RecommendationLevel = 'share' | 'light' | 'strong' | 'marketing'
+export type CopyLength = 'short' | 'standard' | 'detailed'
+export type EmojiPreference = 'none' | 'few' | 'rich'
 export type GenerationFailureType =
   | 'IMAGE_SIZE'
   | 'IMAGE_FORMAT'
@@ -16,6 +46,12 @@ export interface GenerationInput {
   fileSize: number
   url: string
   style: CopywritingStyle
+  scene: ContentType
+  audience: TargetAudience
+  ageGroup: AgeGroup
+  marketingLevel: RecommendationLevel
+  length: CopyLength
+  emojiPreference: EmojiPreference
 }
 
 export interface GeneratedDraft {

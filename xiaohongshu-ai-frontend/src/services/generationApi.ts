@@ -1,5 +1,5 @@
 import type {
-  CopywritingStyle,
+  GenerationInput,
   GenerationCreatedResponse,
   GenerationHistoryItem,
   GenerationImageUploadedResponse,
@@ -62,11 +62,20 @@ const request = async <T>(path: string, options: RequestInit): Promise<T> => {
   return payload as T
 }
 
-export const createGeneration = (url: string, style: CopywritingStyle, signal: AbortSignal) =>
+export const createGeneration = (input: GenerationInput, signal: AbortSignal) =>
   request<GenerationCreatedResponse>('/api/generations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: url.trim() || null, style }),
+    body: JSON.stringify({
+      url: input.url.trim() || null,
+      style: input.style,
+      scene: input.scene,
+      audience: input.audience,
+      ageGroup: input.ageGroup,
+      marketingLevel: input.marketingLevel,
+      length: input.length,
+      emojiPreference: input.emojiPreference,
+    }),
     signal,
   })
 

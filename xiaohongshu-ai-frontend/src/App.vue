@@ -156,7 +156,7 @@ const startGeneration = async (input: GenerationInput) => {
   navigate('/result')
 
   try {
-    const created = await createGeneration(input.url, input.style, controller.signal)
+    const created = await createGeneration(input, controller.signal)
     if (operation !== activeOperation || !generatedDraft.value) return
     generatedDraft.value = {
       ...generatedDraft.value,

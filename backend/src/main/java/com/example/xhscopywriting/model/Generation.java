@@ -10,6 +10,7 @@ public class Generation {
     private String sourceUrl;
     private String urlTitle;
     private String urlDescription;
+    private String generationOptions;
     private String originalFileName;
     private String storedFileName;
     private String imagePath;
@@ -69,6 +70,14 @@ public class Generation {
 
     public void setUrlDescription(String urlDescription) {
         this.urlDescription = urlDescription;
+    }
+
+    public String getGenerationOptions() {
+        return generationOptions;
+    }
+
+    public void setGenerationOptions(String generationOptions) {
+        this.generationOptions = generationOptions;
     }
 
     public String getOriginalFileName() {

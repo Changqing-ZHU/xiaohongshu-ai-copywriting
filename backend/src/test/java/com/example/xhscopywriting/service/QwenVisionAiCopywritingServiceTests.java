@@ -19,6 +19,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,6 +31,7 @@ import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiCopywritingInput;
 import com.example.xhscopywriting.dto.AiCopywritingOptimizationInput;
 import com.example.xhscopywriting.dto.AiImageInfo;
+import com.example.xhscopywriting.dto.CopywritingOptions;
 import com.example.xhscopywriting.exception.AiServiceException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -110,7 +113,7 @@ class QwenVisionAiCopywritingServiceTests {
                 .andExpect(jsonPath("$.messages[1].content[1].text")
                         .value(containsString("种草推荐")))
                 .andExpect(jsonPath("$.messages[1].content[1].text")
-                        .value(containsString("核心卖点")))
+                        .value(containsString("使用场景—可观察亮点—适合谁—自然推荐理由")))
                 .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
 
         AiCopywritingInput input = new AiCopywritingInput(
@@ -140,7 +143,9 @@ class QwenVisionAiCopywritingServiceTests {
                 .andExpect(jsonPath("$.messages[1].content[1].text")
                         .value(containsString("专业测评")))
                 .andExpect(jsonPath("$.messages[1].content[1].text")
-                        .value(containsString("优缺点")))
+                        .value(containsString("测评结构")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("可能不足")))
                 .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
 
         AiCopywritingInput input = new AiCopywritingInput(
@@ -152,6 +157,94 @@ class QwenVisionAiCopywritingServiceTests {
         AiCopywritingResult result = createService(API_KEY).generate(12L, input);
 
         assertEquals("客观测评结果", result.title());
+        mockServer.verify();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "daily,不列卖点",
+            "recommend,使用场景—可观察亮点—适合谁—自然推荐理由",
+            "review,可能不足",
+            "healing,温柔短句",
+            "minimal,无网络热梗"
+    })
+    void givesEachPrimaryStyleDistinctMandatoryPromptRules(
+            String style,
+            String expectedRule) throws Exception {
+        String resultJson = objectMapper.writeValueAsString(Map.of(
+                "imageAnalysis", "图片内容分析",
+                "title", "测试标题",
+                "content", "测试正文",
+                "tags", List.of("测试", "风格", "图片")));
+        String providerResponse = objectMapper.writeValueAsString(Map.of(
+                "choices", List.of(Map.of(
+                        "message", Map.of("content", resultJson)))));
+
+        mockServer.expect(once(), requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("style=" + style)))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString(expectedRule)))
+                .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
+
+        createService(API_KEY).generate(15L, new AiCopywritingInput(
+                imageInfo(),
+                null,
+                null,
+                null,
+                style));
+
+        mockServer.verify();
+    }
+
+    @Test
+    void addsAllEnhancedGenerationOptionsToPrompt() throws Exception {
+        String resultJson = objectMapper.writeValueAsString(Map.of(
+                "imageAnalysis", "餐厅中的一道菜",
+                "title", "这家店真的值得冲",
+                "content", "完整探店体验。",
+                "tags", List.of("美食探店", "约会餐厅", "真实体验")));
+        String providerResponse = objectMapper.writeValueAsString(Map.of(
+                "choices", List.of(Map.of(
+                        "message", Map.of("content", resultJson)))));
+
+        mockServer.expect(once(), requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("爆款小红书风")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("style=viral, scene=food, audience=young_women")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("不得用通用小红书模板弱化所选风格")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("美食探店")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("年轻女性")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("18至25岁")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("明显推荐")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("详细版")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("丰富使用 Emoji")))
+                .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
+
+        AiCopywritingInput input = new AiCopywritingInput(
+                imageInfo(),
+                null,
+                null,
+                null,
+                new CopywritingOptions(
+                        "viral",
+                        "food",
+                        "young_women",
+                        "18_25",
+                        "strong",
+                        "detailed",
+                        "rich"));
+        AiCopywritingResult result = createService(API_KEY).generate(14L, input);
+
+        assertEquals("这家店真的值得冲", result.title());
         mockServer.verify();
     }
 

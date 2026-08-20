@@ -111,6 +111,66 @@ class GenerationControllerTests {
                 .andExpect(jsonPath("$.status").value("PROCESSING"));
     }
 
+    @Test
+    void persistsEnhancedGenerationOptions() throws Exception {
+        TestAuthentication.Identity identity = authenticatedUser();
+        String responseBody = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "style":"viral",
+                                  "scene":"food",
+                                  "audience":"young_women",
+                                  "ageGroup":"18_25",
+                                  "marketingLevel":"strong",
+                                  "length":"detailed",
+                                  "emojiPreference":"rich"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Long id = objectMapper.readTree(responseBody).get("id").asLong();
+        Generation generation = generationRepository.findById(id).orElseThrow();
+        JsonNode options = objectMapper.readTree(generation.getGenerationOptions());
+
+        assertEquals("viral", options.get("style").asText());
+        assertEquals("food", options.get("scene").asText());
+        assertEquals("young_women", options.get("audience").asText());
+        assertEquals("18_25", options.get("ageGroup").asText());
+        assertEquals("strong", options.get("marketingLevel").asText());
+        assertEquals("detailed", options.get("length").asText());
+        assertEquals("rich", options.get("emojiPreference").asText());
+    }
+
+    @Test
+    void appliesBackwardCompatibleDefaultsWhenOptionsAreMissing() throws Exception {
+        TestAuthentication.Identity identity = authenticatedUser();
+        String responseBody = mockMvc.perform(post("/api/generations")
+                        .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Long id = objectMapper.readTree(responseBody).get("id").asLong();
+        JsonNode options = objectMapper.readTree(
+                generationRepository.findById(id).orElseThrow().getGenerationOptions());
+
+        assertEquals("daily", options.get("style").asText());
+        assertEquals("daily_record", options.get("scene").asText());
+        assertEquals("general", options.get("audience").asText());
+        assertEquals("unrestricted", options.get("ageGroup").asText());
+        assertEquals("light", options.get("marketingLevel").asText());
+        assertEquals("standard", options.get("length").asText());
+        assertEquals("few", options.get("emojiPreference").asText());
+    }
+
     private TestAuthentication.Identity authenticatedUser() {
         return TestAuthentication.createUser(userRepository, jwtTokenProvider);
     }

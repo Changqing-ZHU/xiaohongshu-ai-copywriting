@@ -131,7 +131,7 @@ class GenerationAiFailureControllerTests {
     }
 
     @Test
-    void passesSelectedStyleFromCreateRequestToAiService() throws Exception {
+    void passesEnhancedOptionsFromCreateRequestToAiService() throws Exception {
         TestAuthentication.Identity identity = TestAuthentication.createUser(
                 userRepository,
                 jwtTokenProvider);
@@ -144,7 +144,17 @@ class GenerationAiFailureControllerTests {
         String createResponse = mockMvc.perform(post("/api/generations")
                         .header(HttpHeaders.AUTHORIZATION, identity.authorizationHeader())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"style\":\"healing\"}"))
+                        .content("""
+                                {
+                                  "style":"authentic",
+                                  "contentType":"travel",
+                                  "targetAudience":"couples",
+                                  "ageGroup":"25_35",
+                                  "recommendationLevel":"share",
+                                  "copyLength":"short",
+                                  "emojiPreference":"none"
+                                }
+                                """))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
@@ -166,7 +176,13 @@ class GenerationAiFailureControllerTests {
         ArgumentCaptor<AiCopywritingInput> inputCaptor = ArgumentCaptor.forClass(
                 AiCopywritingInput.class);
         verify(aiCopywritingService).generate(eq(id), inputCaptor.capture());
-        assertEquals("healing", inputCaptor.getValue().style());
+        assertEquals("authentic", inputCaptor.getValue().options().style());
+        assertEquals("travel", inputCaptor.getValue().options().scene());
+        assertEquals("couples", inputCaptor.getValue().options().audience());
+        assertEquals("25_35", inputCaptor.getValue().options().ageGroup());
+        assertEquals("share", inputCaptor.getValue().options().marketingLevel());
+        assertEquals("short", inputCaptor.getValue().options().length());
+        assertEquals("none", inputCaptor.getValue().options().emojiPreference());
     }
 
     private Generation createGeneration() {

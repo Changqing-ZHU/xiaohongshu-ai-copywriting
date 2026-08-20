@@ -26,6 +26,7 @@ public class GenerationRepository {
                 source_url,
                 url_title,
                 url_description,
+                generation_options,
                 original_file_name,
                 stored_file_name,
                 image_path,
@@ -38,7 +39,7 @@ public class GenerationRepository {
                 error_message,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String FIND_BY_ID_SQL = """
@@ -49,6 +50,7 @@ public class GenerationRepository {
                 source_url,
                 url_title,
                 url_description,
+                generation_options,
                 original_file_name,
                 stored_file_name,
                 image_path,
@@ -73,6 +75,7 @@ public class GenerationRepository {
                 source_url,
                 url_title,
                 url_description,
+                generation_options,
                 original_file_name,
                 stored_file_name,
                 image_path,
@@ -97,6 +100,7 @@ public class GenerationRepository {
                 source_url,
                 url_title,
                 url_description,
+                generation_options,
                 original_file_name,
                 stored_file_name,
                 image_path,
@@ -122,6 +126,7 @@ public class GenerationRepository {
         generation.setSourceUrl(resultSet.getString("source_url"));
         generation.setUrlTitle(resultSet.getString("url_title"));
         generation.setUrlDescription(resultSet.getString("url_description"));
+        generation.setGenerationOptions(resultSet.getString("generation_options"));
         generation.setOriginalFileName(resultSet.getString("original_file_name"));
         generation.setStoredFileName(resultSet.getString("stored_file_name"));
         generation.setImagePath(resultSet.getString("image_path"));
@@ -194,18 +199,19 @@ public class GenerationRepository {
             statement.setString(3, generation.getSourceUrl());
             statement.setString(4, generation.getUrlTitle());
             statement.setString(5, generation.getUrlDescription());
-            statement.setString(6, generation.getOriginalFileName());
-            statement.setString(7, generation.getStoredFileName());
-            statement.setString(8, generation.getImagePath());
-            statement.setString(9, generation.getImageContentType());
-            statement.setObject(10, generation.getImageSize(), Types.BIGINT);
-            statement.setString(11, generation.getImageAnalysis());
-            statement.setString(12, generation.getTitle());
-            statement.setString(13, generation.getContent());
-            statement.setString(14, generation.getTags());
-            statement.setString(15, generation.getErrorMessage());
-            statement.setTimestamp(16, Timestamp.valueOf(generation.getCreatedAt()));
-            statement.setTimestamp(17, Timestamp.valueOf(generation.getUpdatedAt()));
+            statement.setString(6, generation.getGenerationOptions());
+            statement.setString(7, generation.getOriginalFileName());
+            statement.setString(8, generation.getStoredFileName());
+            statement.setString(9, generation.getImagePath());
+            statement.setString(10, generation.getImageContentType());
+            statement.setObject(11, generation.getImageSize(), Types.BIGINT);
+            statement.setString(12, generation.getImageAnalysis());
+            statement.setString(13, generation.getTitle());
+            statement.setString(14, generation.getContent());
+            statement.setString(15, generation.getTags());
+            statement.setString(16, generation.getErrorMessage());
+            statement.setTimestamp(17, Timestamp.valueOf(generation.getCreatedAt()));
+            statement.setTimestamp(18, Timestamp.valueOf(generation.getUpdatedAt()));
             return statement;
         }, keyHolder);
 

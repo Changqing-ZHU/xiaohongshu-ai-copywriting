@@ -13,6 +13,9 @@ const styles: Array<{ value: CopywritingStyle; label: string; description: strin
   { value: 'review', label: '专业测评', description: '客观分析优点与不足' },
   { value: 'healing', label: '情绪治愈', description: '温柔共鸣，传递情绪' },
   { value: 'minimal', label: '高级简约', description: '克制精炼，强调质感' },
+  { value: 'viral', label: '爆款小红书风', description: '抓人开场，强化记忆点' },
+  { value: 'authentic', label: '真实体验分享', description: '生活化表达，减少营销感' },
+  { value: 'tutorial', label: '干货攻略风', description: '结构清晰，突出实用信息' },
 ]
 </script>
 
@@ -60,7 +63,7 @@ const styles: Array<{ value: CopywritingStyle; label: string; description: strin
 }
 h2 { margin: 0; color: var(--ink); font-size: 18px; }
 .selector-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
-.style-options { margin-top: 20px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.style-options { margin-top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .style-option {
   min-width: 0; padding: 15px 12px; display: grid; justify-items: start; gap: 7px;
   border: 1px solid var(--line); border-radius: 16px; cursor: pointer; text-align: left;
@@ -74,11 +77,9 @@ h2 { margin: 0; color: var(--ink); font-size: 18px; }
 .style-option small { color: var(--muted); font-size: 10px; line-height: 1.5; }
 @media (max-width: 720px) {
   .style-options { grid-template-columns: repeat(2, 1fr); }
-  .style-option:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 420px) {
   .style-selector { padding: 20px; }
   .style-options { grid-template-columns: 1fr; }
-  .style-option:last-child { grid-column: auto; }
 }
 </style>

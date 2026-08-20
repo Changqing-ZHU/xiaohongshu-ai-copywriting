@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS generations (
     source_url VARCHAR(2048) NULL,
     url_title VARCHAR(500) NULL,
     url_description TEXT NULL,
+    generation_options TEXT NULL,
     original_file_name VARCHAR(255) NULL,
     stored_file_name VARCHAR(255) NULL,
     image_path VARCHAR(500) NULL,
@@ -70,6 +71,21 @@ SET @url_description_ddl = IF(
 PREPARE url_description_statement FROM @url_description_ddl;
 EXECUTE url_description_statement;
 DEALLOCATE PREPARE url_description_statement;
+
+SET @generation_options_exists = (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'generations'
+      AND column_name = 'generation_options'
+);
+SET @generation_options_ddl = IF(
+    @generation_options_exists = 0,
+    'ALTER TABLE generations ADD COLUMN generation_options TEXT NULL AFTER url_description',
+    'SELECT 1'
+);
+PREPARE generation_options_statement FROM @generation_options_ddl;
+EXECUTE generation_options_statement;
+DEALLOCATE PREPARE generation_options_statement;
 
 SET @user_id_exists = (
     SELECT COUNT(*) FROM information_schema.columns

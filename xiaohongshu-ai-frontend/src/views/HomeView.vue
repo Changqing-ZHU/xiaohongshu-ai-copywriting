@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import ImageUploader from '../components/ImageUploader.vue'
+import GenerationOptionsPanel from '../components/GenerationOptionsPanel.vue'
 import StyleSelector from '../components/StyleSelector.vue'
 import UrlInput from '../components/UrlInput.vue'
-import type { CopywritingStyle, GenerationInput } from '../types/generation'
+import type {
+  AgeGroup,
+  ContentType,
+  CopyLength,
+  CopywritingStyle,
+  EmojiPreference,
+  GenerationInput,
+  RecommendationLevel,
+  TargetAudience,
+} from '../types/generation'
 
 const emit = defineEmits<{
   generate: [input: GenerationInput]
@@ -12,6 +22,12 @@ const emit = defineEmits<{
 const selectedFile = ref<File | null>(null)
 const sourceUrl = ref('')
 const selectedStyle = ref<CopywritingStyle>('daily')
+const contentType = ref<ContentType>('daily_record')
+const targetAudience = ref<TargetAudience>('general')
+const ageGroup = ref<AgeGroup>('unrestricted')
+const recommendationLevel = ref<RecommendationLevel>('light')
+const copyLength = ref<CopyLength>('standard')
+const emojiPreference = ref<EmojiPreference>('few')
 const previewUrl = ref('')
 const isGenerating = ref(false)
 const preparationError = ref('')
@@ -58,6 +74,12 @@ const generate = async () => {
       fileSize: file?.size ?? 0,
       url: sourceUrl.value.trim(),
       style: selectedStyle.value,
+      scene: contentType.value,
+      audience: targetAudience.value,
+      ageGroup: ageGroup.value,
+      marketingLevel: recommendationLevel.value,
+      length: copyLength.value,
+      emojiPreference: emojiPreference.value,
     })
   } catch (error) {
     preparationError.value = error instanceof Error ? error.message : '图片读取失败，请重新选择'
@@ -97,9 +119,17 @@ onBeforeUnmount(() => {
         <div class="input-divider"><span>或</span></div>
         <UrlInput v-model="sourceUrl" />
         <StyleSelector v-model="selectedStyle" />
+        <GenerationOptionsPanel
+          v-model:content-type="contentType"
+          v-model:target-audience="targetAudience"
+          v-model:age-group="ageGroup"
+          v-model:recommendation-level="recommendationLevel"
+          v-model:copy-length="copyLength"
+          v-model:emoji-preference="emojiPreference"
+        />
       </div>
       <aside class="action-panel">
-        <div class="step-label">03</div>
+        <div class="step-label">04</div>
         <h2>生成你的专属文案</h2>
         <p>我们将分析图片内容，并生成贴近小红书社区表达习惯的完整文案。</p>
         <ul>
