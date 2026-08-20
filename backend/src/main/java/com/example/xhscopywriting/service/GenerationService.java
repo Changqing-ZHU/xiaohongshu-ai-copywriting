@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.xhscopywriting.dto.AiCopywritingInput;
+import com.example.xhscopywriting.dto.AiCopywritingOptimizationInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
 import com.example.xhscopywriting.dto.CopywritingStyles;
@@ -46,6 +47,9 @@ public class GenerationService {
     private static final String SAFE_URL_FORMAT_FAILURE_MESSAGE =
             "Unsupported image URL format. Please use JPEG, PNG, or WebP.";
     private static final String MISSING_INPUT_MESSAGE = "Please provide an image or URL.";
+    private static final String INVALID_OPTIMIZATION_MESSAGE =
+            "Please provide an optimization instruction.";
+    private static final int MAX_OPTIMIZATION_INSTRUCTION_LENGTH = 500;
 
     private final GenerationRepository generationRepository;
     private final ImageStorageService imageStorageService;
@@ -126,6 +130,70 @@ public class GenerationService {
     public Generation processUrlOnly(Long id) {
         Generation generation = requireUrlInput(id);
         return processGeneration(generation, null);
+    }
+
+    @Transactional(noRollbackFor = GenerationProcessingException.class)
+    public Generation optimizeGeneration(Long id, Long userId, String instruction) {
+        Objects.requireNonNull(userId, "Authenticated user id must not be null");
+        Generation original = findById(id);
+        if (!userId.equals(original.getUserId())) {
+            throw new GenerationNotFoundException(id);
+        }
+        if (!COMPLETED_STATUS.equals(original.getStatus())
+                || isBlank(original.getTitle())
+                || isBlank(original.getContent())) {
+            throw new InvalidGenerationInputException(
+                    "Only completed copywriting can be optimized.");
+        }
+
+        String normalizedInstruction = normalizeOptimizationInstruction(instruction);
+        Generation optimized = createOptimizationRecord(original);
+
+        AiCopywritingOptimizationInput aiInput = new AiCopywritingOptimizationInput(
+                toAiImageInfo(original),
+                original.getUrlTitle(),
+                original.getUrlDescription(),
+                original.getImageAnalysis(),
+                original.getTitle(),
+                original.getContent(),
+                original.getTags(),
+                normalizedInstruction);
+
+        final AiCopywritingResult aiResult;
+        try {
+            aiResult = aiCopywritingService.optimize(optimized.getId(), aiInput);
+        } catch (RuntimeException exception) {
+            LOGGER.error(
+                    "AI optimization failed: generationId={}, sourceGenerationId={}, exceptionType={}, reason={}",
+                    optimized.getId(),
+                    original.getId(),
+                    exception.getClass().getSimpleName(),
+                    safeAiReason(exception));
+            markFailedAndThrow(optimized, SAFE_AI_FAILURE_MESSAGE, exception);
+            throw exception;
+        }
+
+        LocalDateTime completedAt = LocalDateTime.now().withNano(0);
+        String storedTags = String.join(",", aiResult.tags());
+        int updatedRows = generationRepository.updateGenerationResult(
+                optimized.getId(),
+                aiResult.imageAnalysis(),
+                aiResult.title(),
+                aiResult.content(),
+                storedTags,
+                COMPLETED_STATUS,
+                completedAt);
+        if (updatedRows != 1) {
+            throw new GenerationNotFoundException(optimized.getId());
+        }
+
+        optimized.setImageAnalysis(aiResult.imageAnalysis());
+        optimized.setTitle(aiResult.title());
+        optimized.setContent(aiResult.content());
+        optimized.setTags(storedTags);
+        optimized.setStatus(COMPLETED_STATUS);
+        optimized.setUpdatedAt(completedAt);
+        return optimized;
     }
 
     private Generation processGeneration(Generation generation, AiImageInfo userImage) {
@@ -292,6 +360,56 @@ public class GenerationService {
                 storedImage.imagePath(),
                 storedImage.contentType(),
                 storedImage.size());
+    }
+
+    private AiImageInfo toAiImageInfo(Generation generation) {
+        if (isBlank(generation.getImagePath())
+                || isBlank(generation.getImageContentType())) {
+            return null;
+        }
+        return new AiImageInfo(
+                generation.getOriginalFileName(),
+                generation.getStoredFileName(),
+                generation.getImagePath(),
+                generation.getImageContentType(),
+                generation.getImageSize() == null ? 0L : generation.getImageSize());
+    }
+
+    private Generation createOptimizationRecord(Generation original) {
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        Generation optimized = new Generation();
+        optimized.setUserId(original.getUserId());
+        optimized.setStatus(INITIAL_STATUS);
+        optimized.setSourceUrl(original.getSourceUrl());
+        optimized.setUrlTitle(original.getUrlTitle());
+        optimized.setUrlDescription(original.getUrlDescription());
+        optimized.setOriginalFileName(original.getOriginalFileName());
+        optimized.setStoredFileName(original.getStoredFileName());
+        optimized.setImagePath(original.getImagePath());
+        optimized.setImageContentType(original.getImageContentType());
+        optimized.setImageSize(original.getImageSize());
+        optimized.setCreatedAt(now);
+        optimized.setUpdatedAt(now);
+        try {
+            generationRepository.insert(optimized);
+            return optimized;
+        } catch (DataAccessException | IllegalStateException exception) {
+            throw new GenerationCreationException(
+                    "Failed to persist optimized generation task",
+                    exception);
+        }
+    }
+
+    private String normalizeOptimizationInstruction(String instruction) {
+        if (instruction == null || instruction.isBlank()) {
+            throw new InvalidGenerationInputException(INVALID_OPTIMIZATION_MESSAGE);
+        }
+        String normalized = instruction.trim();
+        if (normalized.length() > MAX_OPTIMIZATION_INSTRUCTION_LENGTH) {
+            throw new InvalidGenerationInputException(
+                    "Optimization instruction must not exceed 500 characters.");
+        }
+        return normalized;
     }
 
     private String normalizeUrl(String url) {

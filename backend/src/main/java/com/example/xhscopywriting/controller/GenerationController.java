@@ -22,6 +22,7 @@ import com.example.xhscopywriting.dto.GenerationCreatedResponse;
 import com.example.xhscopywriting.dto.GenerationHistoryResponse;
 import com.example.xhscopywriting.dto.GenerationImageResource;
 import com.example.xhscopywriting.dto.GenerationImageUploadedResponse;
+import com.example.xhscopywriting.dto.GenerationOptimizeRequest;
 import com.example.xhscopywriting.dto.GenerationProcessingResponse;
 import com.example.xhscopywriting.dto.GenerationResponse;
 import com.example.xhscopywriting.model.Generation;
@@ -119,5 +120,21 @@ public class GenerationController {
         return ResponseEntity.ok(new GenerationImageUploadedResponse(
                 generation.getId(),
                 generation.getStatus()));
+    }
+
+    @PostMapping("/{id}/optimize")
+    public ResponseEntity<GenerationResponse> optimizeGeneration(
+            @PathVariable Long id,
+            @RequestBody GenerationOptimizeRequest request,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false)
+            String authorizationHeader) {
+        User currentUser = currentUserService.requireUser(authorizationHeader);
+        Generation optimized = generationService.optimizeGeneration(
+                id,
+                currentUser.getId(),
+                request == null ? null : request.instruction());
+        return ResponseEntity
+                .created(URI.create("/api/generations/" + optimized.getId()))
+                .body(GenerationResponse.from(optimized));
     }
 }

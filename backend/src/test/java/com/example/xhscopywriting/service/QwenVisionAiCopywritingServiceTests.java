@@ -27,6 +27,7 @@ import org.springframework.web.client.RestClient;
 
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiCopywritingInput;
+import com.example.xhscopywriting.dto.AiCopywritingOptimizationInput;
 import com.example.xhscopywriting.dto.AiImageInfo;
 import com.example.xhscopywriting.exception.AiServiceException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -151,6 +152,40 @@ class QwenVisionAiCopywritingServiceTests {
         AiCopywritingResult result = createService(API_KEY).generate(12L, input);
 
         assertEquals("客观测评结果", result.title());
+        mockServer.verify();
+    }
+
+    @Test
+    void sendsOriginalCopywritingAndInstructionForOptimization() throws Exception {
+        String resultJson = objectMapper.writeValueAsString(Map.of(
+                "imageAnalysis", "仍然是一杯咖啡。",
+                "title", "和朋友喝杯咖啡",
+                "content", "今天和朋友随意聊聊，手边这杯咖啡刚刚好。",
+                "tags", List.of("咖啡日常", "朋友相聚", "轻松分享")));
+        String providerResponse = objectMapper.writeValueAsString(Map.of(
+                "choices", List.of(Map.of(
+                        "message", Map.of("content", resultJson)))));
+
+        mockServer.expect(once(), requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[1].content[0].type").value("image_url"))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("原正文：原来的正式正文")))
+                .andExpect(jsonPath("$.messages[1].content[1].text")
+                        .value(containsString("用户优化要求：像朋友分享一样")))
+                .andRespond(withSuccess(providerResponse, MediaType.APPLICATION_JSON));
+
+        AiCopywritingOptimizationInput input = new AiCopywritingOptimizationInput(
+                imageInfo(),
+                null,
+                null,
+                "一杯咖啡",
+                "原标题",
+                "原来的正式正文",
+                "咖啡,生活",
+                "像朋友分享一样");
+        AiCopywritingResult result = createService(API_KEY).optimize(13L, input);
+
+        assertEquals("和朋友喝杯咖啡", result.title());
         mockServer.verify();
     }
 

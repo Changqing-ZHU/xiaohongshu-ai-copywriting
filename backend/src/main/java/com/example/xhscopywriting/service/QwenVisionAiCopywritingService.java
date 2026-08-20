@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.example.xhscopywriting.dto.AiCopywritingInput;
+import com.example.xhscopywriting.dto.AiCopywritingOptimizationInput;
 import com.example.xhscopywriting.dto.AiCopywritingResult;
 import com.example.xhscopywriting.dto.AiImageInfo;
 import com.example.xhscopywriting.dto.CopywritingStyles;
@@ -54,6 +55,12 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
 
     private static final String USER_PROMPT = "请分析提供的素材，并生成符合要求的小红书文案。";
 
+    private static final String OPTIMIZATION_PROMPT = """
+            请在忠于原图片和原文案事实的前提下，根据用户要求优化小红书文案。
+            保留原素材的核心信息，不要虚构图片中不存在的内容。
+            返回更新后的 imageAnalysis、title、content 和 tags。
+            """;
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
@@ -85,6 +92,33 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
                     exception.getMessage());
             throw exception;
         }
+
+        return executeRequest(generationId, requestBody);
+    }
+
+    @Override
+    public AiCopywritingResult optimize(
+            Long generationId,
+            AiCopywritingOptimizationInput input) {
+        final Map<String, Object> requestBody;
+        try {
+            validateConfiguration();
+            validateOptimizationInput(input);
+            requestBody = createOptimizationRequestBody(input);
+        } catch (AiServiceException exception) {
+            LOGGER.error(
+                    "Qwen optimization request preparation failed: generationId={}, reason={}",
+                    generationId,
+                    exception.getMessage());
+            throw exception;
+        }
+
+        return executeRequest(generationId, requestBody);
+    }
+
+    private AiCopywritingResult executeRequest(
+            Long generationId,
+            Map<String, Object> requestBody) {
 
         final String responseBody;
         try {
@@ -122,6 +156,18 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
 
     private void validateInput(AiCopywritingInput input) {
         if (input == null || (!input.hasImage() && !input.hasUrlText())) {
+            throw new AiServiceException(INVALID_RESPONSE_MESSAGE);
+        }
+    }
+
+    private void validateOptimizationInput(AiCopywritingOptimizationInput input) {
+        if (input == null
+                || input.instruction() == null
+                || input.instruction().isBlank()
+                || input.originalTitle() == null
+                || input.originalTitle().isBlank()
+                || input.originalContent() == null
+                || input.originalContent().isBlank()) {
             throw new AiServiceException(INVALID_RESPONSE_MESSAGE);
         }
     }
@@ -175,6 +221,23 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
                 "stream", false);
     }
 
+    private Map<String, Object> createOptimizationRequestBody(
+            AiCopywritingOptimizationInput input) {
+        List<Map<String, Object>> userContent = new ArrayList<>();
+        addImageContent(userContent, input.image());
+        userContent.add(Map.of(
+                "type", "text",
+                "text", createOptimizationPrompt(input)));
+
+        return Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "system", "content", SYSTEM_PROMPT),
+                        Map.of("role", "user", "content", List.copyOf(userContent))),
+                "response_format", Map.of("type", "json_object"),
+                "stream", false);
+    }
+
     private void addImageContent(List<Map<String, Object>> content, AiImageInfo imageInfo) {
         if (imageInfo == null) {
             return;
@@ -198,6 +261,24 @@ public class QwenVisionAiCopywritingService implements AiCopywritingService {
             }
         }
         return prompt.toString();
+    }
+
+    private String createOptimizationPrompt(AiCopywritingOptimizationInput input) {
+        StringBuilder prompt = new StringBuilder(OPTIMIZATION_PROMPT);
+        appendPromptValue(prompt, "原图片分析", input.originalImageAnalysis());
+        appendPromptValue(prompt, "原标题", input.originalTitle());
+        appendPromptValue(prompt, "原正文", input.originalContent());
+        appendPromptValue(prompt, "原标签", input.originalTags());
+        appendPromptValue(prompt, "原 URL 标题", input.urlTitle());
+        appendPromptValue(prompt, "原 URL 描述", input.urlDescription());
+        appendPromptValue(prompt, "用户优化要求", input.instruction());
+        return prompt.toString();
+    }
+
+    private void appendPromptValue(StringBuilder prompt, String label, String value) {
+        if (value != null && !value.isBlank()) {
+            prompt.append('\n').append(label).append("：").append(value);
+        }
     }
 
     private String styleInstruction(String style) {

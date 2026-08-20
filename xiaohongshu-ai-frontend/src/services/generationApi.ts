@@ -98,3 +98,14 @@ export const getGenerationHistory = (signal: AbortSignal) =>
     method: 'GET',
     signal,
   })
+
+export const optimizeGeneration = (
+  id: number,
+  instruction: string,
+  signal: AbortSignal,
+) => request<GenerationResponse>(`/api/generations/${id}/optimize`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ instruction: instruction.trim() }),
+  signal,
+})

@@ -21,6 +21,7 @@ import {
   ApiRequestError,
   createGeneration,
   getGeneration,
+  optimizeGeneration,
   resolveApiUrl,
   triggerGeneration,
   uploadGenerationImage,
@@ -58,6 +59,8 @@ if (initialPath !== window.location.pathname) {
 const currentPath = ref(initialPath)
 const generatedDraft = ref<GeneratedDraft | null>(null)
 const resultReturnPath = ref('/workbench')
+const optimizingCopywriting = ref(false)
+const optimizationError = ref('')
 let activeController: AbortController | null = null
 let activeOperation = 0
 
@@ -134,6 +137,7 @@ const startGeneration = async (input: GenerationInput) => {
   activeController = controller
   const operation = ++activeOperation
   resultReturnPath.value = '/workbench'
+  optimizationError.value = ''
 
   generatedDraft.value = {
     generationId: null,
@@ -196,6 +200,7 @@ const openHistoryRecord = async (record: GenerationHistoryItem) => {
   activeController = controller
   const operation = ++activeOperation
   resultReturnPath.value = '/history'
+  optimizationError.value = ''
   generatedDraft.value = {
     generationId: record.id,
     imageUrl: record.imageUrl ? resolveApiUrl(record.imageUrl) : '',
@@ -234,10 +239,40 @@ const handleNavigation = (path: string) => {
   activeController = null
   activeOperation += 1
   generatedDraft.value = null
+  optimizingCopywriting.value = false
+  optimizationError.value = ''
   navigate(path)
 }
 
 const leaveResult = () => handleNavigation(resultReturnPath.value)
+
+const handleOptimize = async (instruction: string) => {
+  const generationId = generatedDraft.value?.generationId
+  if (!generationId || generatedDraft.value?.status !== 'COMPLETED') return
+
+  activeController?.abort()
+  const controller = new AbortController()
+  activeController = controller
+  const operation = ++activeOperation
+  optimizingCopywriting.value = true
+  optimizationError.value = ''
+
+  try {
+    const response = await optimizeGeneration(generationId, instruction, controller.signal)
+    updateFromResponse(response, operation)
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    if (operation !== activeOperation) return
+    optimizationError.value = error instanceof Error
+      ? error.message
+      : '文案优化失败，请稍后重试。'
+  } finally {
+    if (operation === activeOperation) {
+      optimizingCopywriting.value = false
+      activeController = null
+    }
+  }
+}
 
 const handleAuthenticated = () => handleNavigation('/workbench')
 const handleRegistered = () => handleNavigation('/login')
@@ -275,7 +310,10 @@ onBeforeUnmount(() => {
         v-if="currentPath === '/result'"
         :draft="generatedDraft"
         :return-label="resultReturnPath === '/history' ? '返回历史记录' : '返回重新生成'"
+        :optimizing="optimizingCopywriting"
+        :optimization-error="optimizationError"
         @restart="leaveResult"
+        @optimize="handleOptimize"
       />
       <HistoryView
         v-else-if="currentPath === '/history'"

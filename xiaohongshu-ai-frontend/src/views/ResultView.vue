@@ -1,15 +1,40 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import CopyCard from '../components/CopyCard.vue'
 import type { GeneratedDraft } from '../types/generation'
 
 const props = withDefaults(defineProps<{
   draft: GeneratedDraft | null
   returnLabel?: string
+  optimizing?: boolean
+  optimizationError?: string
 }>(), {
   returnLabel: '返回重新生成',
+  optimizing: false,
+  optimizationError: '',
 })
-const emit = defineEmits<{ restart: [] }>()
+const emit = defineEmits<{
+  restart: []
+  optimize: [instruction: string]
+}>()
+
+const optimizationInstruction = ref('')
+const quickSuggestions = [
+  '像朋友分享一样',
+  '减少广告感',
+  '增加购买欲',
+  '简短一些',
+]
+
+const submitOptimization = () => {
+  const instruction = optimizationInstruction.value.trim()
+  if (!instruction || props.optimizing) return
+  emit('optimize', instruction)
+}
+
+const useSuggestion = (suggestion: string) => {
+  optimizationInstruction.value = suggestion
+}
 
 const statusLabel = computed(() => {
   if (props.draft?.status === 'COMPLETED') return '✓ 生成完成'
@@ -83,6 +108,42 @@ const description = computed(() => {
         <section class="copy-column" aria-label="生成的文案结果">
           <template v-if="draft.status === 'COMPLETED'">
             <CopyCard eyebrow="推荐标题" :title="draft.title || ''" />
+            <section class="optimization-card">
+              <div class="optimization-heading">
+                <div>
+                  <span>继续优化文案</span>
+                  <p>告诉 AI 你希望怎样调整，当前结果会保留在历史记录中。</p>
+                </div>
+              </div>
+              <div class="suggestion-list" aria-label="快捷优化建议">
+                <button
+                  v-for="suggestion in quickSuggestions"
+                  :key="suggestion"
+                  type="button"
+                  :disabled="optimizing"
+                  @click="useSuggestion(suggestion)"
+                >{{ suggestion }}</button>
+              </div>
+              <textarea
+                v-model="optimizationInstruction"
+                maxlength="500"
+                rows="4"
+                placeholder="例如：文案太正式了，改得自然随和一点"
+                :disabled="optimizing"
+                @keydown.ctrl.enter.prevent="submitOptimization"
+              ></textarea>
+              <div class="optimization-actions">
+                <small :class="{ error: optimizationError }">
+                  {{ optimizationError || '最多 500 字，按 Ctrl + Enter 也可提交' }}
+                </small>
+                <button
+                  class="primary-button"
+                  type="button"
+                  :disabled="!optimizationInstruction.trim() || optimizing"
+                  @click="submitOptimization"
+                >{{ optimizing ? '正在优化…' : '优化文案' }}</button>
+              </div>
+            </section>
             <CopyCard eyebrow="小红书正文" :content="draft.content || ''" />
             <CopyCard eyebrow="话题标签" :tags="draft.tags" />
           </template>
@@ -136,6 +197,31 @@ h1 { margin: 16px 0 8px; color: var(--ink); font-size: clamp(32px, 5vw, 48px); l
 .analysis-heading small { color: #a07178; }
 .analysis-card p { margin: 14px 0 18px; color: #64585c; font-size: 13px; line-height: 1.75; }
 .copy-column { padding: 18px; border-radius: 24px; }
+.optimization-card {
+  padding: 22px; border: 1px solid var(--line); border-radius: 18px;
+  background: linear-gradient(145deg, #fffafa, #fff);
+}
+.optimization-heading span { color: var(--ink); font-size: 16px; font-weight: 800; }
+.optimization-heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.suggestion-list { margin: 16px 0 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.suggestion-list button {
+  padding: 7px 11px; border: 1px solid #f1dadd; border-radius: 999px;
+  color: #8f4f59; font: inherit; font-size: 12px; background: #fff; cursor: pointer;
+}
+.suggestion-list button:hover:not(:disabled) { color: var(--red); border-color: #f2aeb7; }
+.optimization-card textarea {
+  box-sizing: border-box; width: 100%; padding: 13px 14px; resize: vertical;
+  border: 1px solid var(--line); border-radius: 14px; outline: none;
+  color: var(--ink); font: inherit; line-height: 1.6; background: #fff;
+}
+.optimization-card textarea:focus { border-color: #f19da8; box-shadow: 0 0 0 3px #fff0f2; }
+.optimization-actions {
+  margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.optimization-actions small { color: var(--muted); }
+.optimization-actions small.error { color: #b4233a; }
+.optimization-actions .primary-button:disabled,
+.suggestion-list button:disabled { cursor: not-allowed; opacity: 0.55; }
 .status-card {
   min-height: 310px; padding: 42px; display: flex; align-items: center; justify-content: center;
   flex-direction: column; border: 1px solid var(--line); border-radius: 18px; text-align: center; background: #fff;
@@ -161,5 +247,6 @@ h1 { margin: 16px 0 8px; color: var(--ink); font-size: clamp(32px, 5vw, 48px); l
 @media (max-width: 520px) {
   .result-page { padding-top: 38px; }
   .empty-result { margin: 40px auto; padding: 34px 22px; }
+  .optimization-actions { align-items: stretch; flex-direction: column; }
 }
 </style>
